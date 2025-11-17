@@ -5,11 +5,18 @@ import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAudioPlayer } from '@/hooks/useAudioPlayer'
-import { selectSegment, selectSnippet, setIsPlaying, useAppStore, useTranscript, useSnippets } from '@/store'
+import { addSnippet, selectSnippet, setIsPlaying, useAppStore, useTranscript, useSnippets } from '@/store'
 import { AlertCircle, FileAudio, Settings, Upload } from 'lucide-react'
-import { Virtuoso } from 'react-virtuoso'
+import { useState, useCallback, useMemo } from 'react'
 import { formatTime, PlaybackControls } from './PlaybackControls'
 import { SpeakersPanel } from './SpeakersPanel'
+import type { TranscriptWord } from '@/types'
+
+interface WordPosition {
+  segmentIndex: number
+  wordIndex: number
+  word: TranscriptWord
+}
 
 export function MainPanel() {
   const projects = useAppStore((state) => state.projects)
@@ -23,6 +30,12 @@ export function MainPanel() {
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
 
+  // Selection state for snippet creation
+  const [selectionStart, setSelectionStart] = useState<WordPosition | null>(null)
+  const [selectionEnd, setSelectionEnd] = useState<WordPosition | null>(null)
+  const [isSelecting, setIsSelecting] = useState(false)
+  const [hoverPosition, setHoverPosition] = useState<WordPosition | null>(null)
+
   // Audio player hook
   const { currentTime, duration, isLoaded, seek } = useAudioPlayer({
     audioFileId: selectedProject?.audioFileId ?? null,
@@ -30,8 +43,109 @@ export function MainPanel() {
     onPlaybackEnd: () => setIsPlaying(false),
   })
 
+  // Flatten all words with their positions for easier comparison
+  const allWords = useMemo(() => {
+    const words: WordPosition[] = []
+    transcript.forEach((segment, segmentIndex) => {
+      segment.words?.forEach((word, wordIndex) => {
+        words.push({ segmentIndex, wordIndex, word })
+      })
+    })
+    return words
+  }, [transcript])
+
+  // Get global index of a word position
+  const getGlobalIndex = useCallback((pos: WordPosition) => {
+    let index = 0
+    for (let s = 0; s < pos.segmentIndex; s++) {
+      index += transcript[s]?.words?.length ?? 0
+    }
+    return index + pos.wordIndex
+  }, [transcript])
+
+  // Check if a word is within the current selection range
+  const isWordInSelection = useCallback((pos: WordPosition) => {
+    if (!selectionStart) return false
+
+    const endPos = isSelecting ? hoverPosition : selectionEnd
+    if (!endPos) return false
+
+    const startIdx = getGlobalIndex(selectionStart)
+    const endIdx = getGlobalIndex(endPos)
+    const currentIdx = getGlobalIndex(pos)
+
+    const minIdx = Math.min(startIdx, endIdx)
+    const maxIdx = Math.max(startIdx, endIdx)
+
+    return currentIdx >= minIdx && currentIdx <= maxIdx
+  }, [selectionStart, selectionEnd, isSelecting, hoverPosition, getGlobalIndex])
+
+  // Handle word click for selection
+  const handleWordClick = useCallback((pos: WordPosition) => {
+    if (!isSelecting) {
+      // Start new selection
+      setSelectionStart(pos)
+      setSelectionEnd(null)
+      setIsSelecting(true)
+      setHoverPosition(pos)
+    } else {
+      // End selection
+      setSelectionEnd(pos)
+      setIsSelecting(false)
+
+      // Create snippet from selection
+      if (selectionStart) {
+        const startIdx = getGlobalIndex(selectionStart)
+        const endIdx = getGlobalIndex(pos)
+        const minIdx = Math.min(startIdx, endIdx)
+        const maxIdx = Math.max(startIdx, endIdx)
+
+        const selectedWords = allWords.slice(minIdx, maxIdx + 1)
+        if (selectedWords.length > 0) {
+          const startTime = selectedWords[0].word.start
+          const endTime = selectedWords[selectedWords.length - 1].word.end
+          const text = selectedWords.map(w => w.word.text).join(' ')
+
+          const snippet = {
+            id: crypto.randomUUID(),
+            name: `Snippet ${snippets.length + 1}`,
+            text,
+            startTime,
+            endTime,
+          }
+
+          addSnippet(snippet)
+          selectSnippet(snippet)
+        }
+      }
+
+      // Clear selection after creating snippet
+      setTimeout(() => {
+        setSelectionStart(null)
+        setSelectionEnd(null)
+        setHoverPosition(null)
+      }, 100)
+    }
+  }, [isSelecting, selectionStart, getGlobalIndex, allWords, snippets.length])
+
+  // Handle word hover during selection
+  const handleWordHover = useCallback((pos: WordPosition) => {
+    if (isSelecting) {
+      setHoverPosition(pos)
+    }
+  }, [isSelecting])
+
+  // Cancel selection on escape
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape' && isSelecting) {
+      setIsSelecting(false)
+      setSelectionStart(null)
+      setSelectionEnd(null)
+      setHoverPosition(null)
+    }
+  }, [isSelecting])
+
   const handleOpenProjectSettings = () => {
-    // TODO: Implement project settings (speaker mapping)
     console.log('Open project settings')
   }
 
@@ -101,7 +215,7 @@ export function MainPanel() {
       </div>
 
       {/* Content Area - Scrollable */}
-      <TabsContent value="transcript" className="mt-0 min-h-0 flex-1">
+      <TabsContent value="transcript" className="mt-0 min-h-0 flex-1" onKeyDown={handleKeyDown} tabIndex={0}>
         {transcript.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <p className="py-8 text-center text-muted-foreground">
@@ -109,30 +223,58 @@ export function MainPanel() {
             </p>
           </div>
         ) : (
-          <Virtuoso
-            data={transcript}
-            itemContent={(_index, segment) => {
-              const displayName = selectedProject.speakerMap?.[segment.speaker] || segment.speaker
-              return (
-                <div className="px-4 pb-3 first:pt-4">
-                  <Card
-                    className="cursor-pointer transition-colors hover:bg-accent"
-                    onClick={() => selectSegment(segment)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="mb-1 flex items-center gap-2">
-                        <Badge variant="secondary">{displayName}</Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
-                        </span>
-                      </div>
-                      <p className="text-sm">{segment.text}</p>
-                    </CardContent>
-                  </Card>
+          <ScrollArea className="h-full">
+            <div className="p-6">
+              {isSelecting && (
+                <div className="mb-4 rounded-md bg-blue-50 p-2 text-sm text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                  Click another word to complete your selection, or press Escape to cancel
                 </div>
-              )
-            }}
-          />
+              )}
+              <div className="space-y-6">
+                {transcript.map((segment, segmentIndex) => {
+                  const displayName = selectedProject.speakerMap?.[segment.speaker] || segment.speaker
+                  return (
+                    <div key={segment.id} className="flex gap-4">
+                      {/* Left margin - speaker and timestamp */}
+                      <div className="w-32 flex-shrink-0 text-right">
+                        <div className="sticky top-4">
+                          <Badge variant="secondary" className="mb-1">
+                            {displayName}
+                          </Badge>
+                          <div className="text-xs text-muted-foreground">
+                            {formatTime(segment.startTime)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Center - flowing text with clickable words */}
+                      <div className="flex-1 leading-relaxed">
+                        {segment.words?.map((word, wordIndex) => {
+                          const pos: WordPosition = { segmentIndex, wordIndex, word }
+                          const isSelected = isWordInSelection(pos)
+
+                          return (
+                            <span
+                              key={`${segment.id}-${wordIndex}`}
+                              onClick={() => handleWordClick(pos)}
+                              onMouseEnter={() => handleWordHover(pos)}
+                              className={`cursor-pointer rounded px-0.5 transition-colors ${
+                                isSelected
+                                  ? 'bg-yellow-200 dark:bg-yellow-800'
+                                  : 'hover:bg-muted'
+                              }`}
+                            >
+                              {word.text}{' '}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </ScrollArea>
         )}
       </TabsContent>
 
@@ -141,7 +283,7 @@ export function MainPanel() {
           <div className="space-y-3 p-4">
             {snippets.length === 0 ? (
               <p className="py-8 text-center text-muted-foreground">
-                No snippets saved yet
+                No snippets saved yet. Click on words in the transcript to create snippets.
               </p>
             ) : (
               snippets.map((snippet) => (
@@ -150,11 +292,18 @@ export function MainPanel() {
                   className="cursor-pointer transition-colors hover:bg-accent"
                   onClick={() => selectSnippet(snippet)}
                 >
-                  <CardContent className="flex items-center justify-between p-3">
-                    <span className="text-sm font-medium">{snippet.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatTime(snippet.startTime)} - {formatTime(snippet.endTime)}
-                    </span>
+                  <CardContent className="p-3">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-sm font-medium">{snippet.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatTime(snippet.startTime)} - {formatTime(snippet.endTime)}
+                      </span>
+                    </div>
+                    {snippet.text && (
+                      <p className="line-clamp-2 text-xs text-muted-foreground">
+                        {snippet.text}
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               ))

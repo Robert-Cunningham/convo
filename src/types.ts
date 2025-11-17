@@ -11,10 +11,18 @@ export interface Project {
 
 export type UploadStatus = 'idle' | 'uploading' | 'transcribing' | 'complete' | 'error'
 
+export interface TranscriptWord {
+  text: string
+  start: number
+  end: number
+  speaker: string
+}
+
 export interface TranscriptSegment {
   id: string
   speaker: string
   text: string
+  words: TranscriptWord[]
   startTime: number
   endTime: number
 }
@@ -22,6 +30,7 @@ export interface TranscriptSegment {
 export interface Snippet {
   id: string
   name: string
+  text: string
   startTime: number
   endTime: number
 }

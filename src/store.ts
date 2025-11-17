@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 import { produce } from 'immer'
 import type { Project, TranscriptSegment, Snippet, SelectedItem, UploadStatus } from './types'
-import { saveAudioFile, loadApiKey } from './lib/storage'
+import { saveAudioFile, loadApiKey, deleteAudioFile } from './lib/storage'
 import { transcribeAudio } from './lib/elevenlabs'
 
 interface AppState {
@@ -91,6 +91,7 @@ export const selectSnippet = (snippet: Snippet) =>
       type: 'snippet',
       id: snippet.id,
       name: snippet.name,
+      text: snippet.text,
       startTime: snippet.startTime,
       endTime: snippet.endTime,
     }
@@ -128,6 +129,32 @@ export const updateSpeakerName = (projectId: string, speakerId: string, customNa
       }
     }
   })
+
+export const deleteProject = async (projectId: string) => {
+  const store = useAppStore.getState()
+  const project = store.projects.find((p) => p.id === projectId)
+
+  if (!project) return
+
+  // Delete audio file from IndexedDB
+  try {
+    await deleteAudioFile(project.audioFileId)
+  } catch (error) {
+    console.error('Failed to delete audio file:', error)
+  }
+
+  // Remove project from store
+  store.mutate((s) => {
+    s.projects = s.projects.filter((p) => p.id !== projectId)
+
+    // If the deleted project was selected, clear selection
+    if (s.selectedProjectId === projectId) {
+      s.selectedProjectId = s.projects.length > 0 ? s.projects[0].id : null
+      s.selectedItem = null
+      s.isPlaying = false
+    }
+  })
+}
 
 export const createProjectFromFile = async (file: File) => {
   const store = useAppStore.getState()

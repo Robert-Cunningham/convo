@@ -1,9 +1,15 @@
 import { useState } from 'react'
-import { useAppStore, selectProject, createProjectFromFile } from '@/store'
+import { useAppStore, selectProject, createProjectFromFile, deleteProject } from '@/store'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Plus, Settings, MessageSquareText } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Plus, Settings, MessageSquareText, MoreHorizontal, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NewProjectDialog } from './NewProjectDialog'
 import { SettingsDialog } from './SettingsDialog'
@@ -63,17 +69,35 @@ export function Sidebar() {
           ) : (
             <div className="space-y-1">
               {projects.map((project) => (
-                <Button
-                  key={project.id}
-                  variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'w-full justify-start',
-                    selectedProjectId === project.id && 'bg-accent'
-                  )}
-                  onClick={() => selectProject(project.id)}
-                >
-                  {project.name}
-                </Button>
+                <div key={project.id} className="group flex items-center gap-1">
+                  <Button
+                    variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
+                    className={cn(
+                      'flex-1 justify-start truncate',
+                      selectedProjectId === project.id && 'bg-accent'
+                    )}
+                    onClick={() => selectProject(project.id)}
+                  >
+                    {project.name}
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => deleteProject(project.id)}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               ))}
             </div>
           )}

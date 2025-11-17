@@ -1,4 +1,4 @@
-import type { TranscriptSegment } from '../types'
+import type { TranscriptSegment, TranscriptWord } from '../types'
 
 interface ScribeWord {
   text: string
@@ -47,26 +47,39 @@ export async function transcribeAudio(
 function transformScribeResponse(response: ScribeResponse): TranscriptSegment[] {
   const segments: TranscriptSegment[] = []
   let currentSegment: Partial<TranscriptSegment> | null = null
+  let currentWords: TranscriptWord[] = []
 
   for (const word of response.words) {
+    const transcriptWord: TranscriptWord = {
+      text: word.text,
+      start: word.start,
+      end: word.end,
+      speaker: word.speaker_id,
+    }
+
     if (!currentSegment || currentSegment.speaker !== word.speaker_id) {
       if (currentSegment && currentSegment.text) {
+        currentSegment.words = currentWords
         segments.push(currentSegment as TranscriptSegment)
       }
+      currentWords = [transcriptWord]
       currentSegment = {
         id: crypto.randomUUID(),
         speaker: word.speaker_id,
         text: word.text,
+        words: currentWords,
         startTime: word.start,
         endTime: word.end,
       }
     } else {
+      currentWords.push(transcriptWord)
       currentSegment.text += ' ' + word.text
       currentSegment.endTime = word.end
     }
   }
 
   if (currentSegment && currentSegment.text) {
+    currentSegment.words = currentWords
     segments.push(currentSegment as TranscriptSegment)
   }
 
