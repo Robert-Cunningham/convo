@@ -1,9 +1,8 @@
-import { useAppStore } from '../store'
+import { useAppStore, selectProject } from '../store'
 
 export function Sidebar() {
   const projects = useAppStore((state) => state.projects)
   const selectedProjectId = useAppStore((state) => state.selectedProjectId)
-  const selectProject = useAppStore((state) => state.selectProject)
 
   const handleNewProject = () => {
     // TODO: Implement new project creation with file upload

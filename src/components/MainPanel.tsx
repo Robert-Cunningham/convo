@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAppStore } from '../store'
+import { useAppStore, selectSegment, selectSnippet } from '../store'
 import type { ViewMode } from '../types'
 
 export function MainPanel() {
@@ -11,8 +11,6 @@ export function MainPanel() {
   const snippets = useAppStore((state) => state.snippets)
   const isPlaying = useAppStore((state) => state.isPlaying)
   const togglePlayback = useAppStore((state) => state.togglePlayback)
-  const selectSegment = useAppStore((state) => state.selectSegment)
-  const selectSnippet = useAppStore((state) => state.selectSnippet)
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
 

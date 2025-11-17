@@ -1,32 +1,22 @@
 import { create } from 'zustand'
+import { produce } from 'immer'
 import type { Project, TranscriptSegment, Snippet, SelectedItem } from './types'
 
 interface AppState {
-  // Projects
+  // State
   projects: Project[]
   selectedProjectId: string | null
-
-  // Current project data
   transcript: TranscriptSegment[]
   snippets: Snippet[]
-
-  // Playback
   isPlaying: boolean
-
-  // Inspector
   selectedItem: SelectedItem | null
 
-  // Actions
-  addProject: (project: Project) => void
-  selectProject: (id: string) => void
-  setTranscript: (transcript: TranscriptSegment[]) => void
-  setSnippets: (snippets: Snippet[]) => void
-  togglePlayback: () => void
-  setIsPlaying: (isPlaying: boolean) => void
-  selectSegment: (segment: TranscriptSegment) => void
-  selectSnippet: (snippet: Snippet) => void
+  // Single immer-based mutator
+  mutate: (fn: (state: AppState) => void) => void
+
+  // Simple actions that belong on state
   clearSelection: () => void
-  addSnippet: (snippet: Snippet) => void
+  togglePlayback: () => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -38,60 +28,68 @@ export const useAppStore = create<AppState>((set) => ({
   isPlaying: false,
   selectedItem: null,
 
-  // Actions
-  addProject: (project) =>
-    set((state) => ({
-      projects: [...state.projects, project],
-    })),
+  // Single mutator using immer's produce
+  mutate: (fn) => set(produce(fn)),
 
-  selectProject: (id) =>
-    set({
-      selectedProjectId: id,
-      selectedItem: null,
-      // Reset project-specific data when switching projects
-      transcript: [],
-      snippets: [],
-      isPlaying: false,
-    }),
-
-  setTranscript: (transcript) => set({ transcript }),
-
-  setSnippets: (snippets) => set({ snippets }),
-
-  togglePlayback: () =>
-    set((state) => ({
-      isPlaying: !state.isPlaying,
-    })),
-
-  setIsPlaying: (isPlaying) => set({ isPlaying }),
-
-  selectSegment: (segment) =>
-    set({
-      selectedItem: {
-        type: 'segment',
-        id: segment.id,
-        speaker: segment.speaker,
-        text: segment.text,
-        startTime: segment.startTime,
-        endTime: segment.endTime,
-      },
-    }),
-
-  selectSnippet: (snippet) =>
-    set({
-      selectedItem: {
-        type: 'snippet',
-        id: snippet.id,
-        name: snippet.name,
-        startTime: snippet.startTime,
-        endTime: snippet.endTime,
-      },
-    }),
-
+  // Simple top-level actions
   clearSelection: () => set({ selectedItem: null }),
-
-  addSnippet: (snippet) =>
-    set((state) => ({
-      snippets: [...state.snippets, snippet],
-    })),
+  togglePlayback: () => set((s) => ({ isPlaying: !s.isPlaying })),
 }))
+
+// Action helpers
+export const addProject = (project: Project) =>
+  useAppStore.getState().mutate((s) => {
+    s.projects.push(project)
+  })
+
+export const selectProject = (id: string) =>
+  useAppStore.getState().mutate((s) => {
+    s.selectedProjectId = id
+    s.selectedItem = null
+    s.transcript = []
+    s.snippets = []
+    s.isPlaying = false
+  })
+
+export const setTranscript = (transcript: TranscriptSegment[]) =>
+  useAppStore.getState().mutate((s) => {
+    s.transcript = transcript
+  })
+
+export const setSnippets = (snippets: Snippet[]) =>
+  useAppStore.getState().mutate((s) => {
+    s.snippets = snippets
+  })
+
+export const setIsPlaying = (isPlaying: boolean) =>
+  useAppStore.getState().mutate((s) => {
+    s.isPlaying = isPlaying
+  })
+
+export const selectSegment = (segment: TranscriptSegment) =>
+  useAppStore.getState().mutate((s) => {
+    s.selectedItem = {
+      type: 'segment',
+      id: segment.id,
+      speaker: segment.speaker,
+      text: segment.text,
+      startTime: segment.startTime,
+      endTime: segment.endTime,
+    }
+  })
+
+export const selectSnippet = (snippet: Snippet) =>
+  useAppStore.getState().mutate((s) => {
+    s.selectedItem = {
+      type: 'snippet',
+      id: snippet.id,
+      name: snippet.name,
+      startTime: snippet.startTime,
+      endTime: snippet.endTime,
+    }
+  })
+
+export const addSnippet = (snippet: Snippet) =>
+  useAppStore.getState().mutate((s) => {
+    s.snippets.push(snippet)
+  })
