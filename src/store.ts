@@ -97,6 +97,17 @@ export const selectSnippet = (snippet: Snippet) =>
     }
   })
 
+export const selectTemporarySnippet = (data: { text: string; startTime: number; endTime: number }) =>
+  useAppStore.getState().mutate((s) => {
+    s.selectedItem = {
+      type: 'segment', // Use 'segment' type so "Save to Project" button appears
+      id: crypto.randomUUID(),
+      text: data.text,
+      startTime: data.startTime,
+      endTime: data.endTime,
+    }
+  })
+
 export const addSnippet = (snippet: Snippet) =>
   useAppStore.getState().mutate((s) => {
     const project = s.projects.find((p) => p.id === s.selectedProjectId)

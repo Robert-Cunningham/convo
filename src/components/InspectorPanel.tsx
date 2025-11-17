@@ -1,21 +1,47 @@
-import { useAppStore } from '@/store'
+import { useEffect } from 'react'
+import { useAppStore, addSnippet, selectSnippet, useSnippets } from '@/store'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Download, Save } from 'lucide-react'
+import { Save, Loader2 } from 'lucide-react'
+import { useSnippetAudio } from '@/hooks/useSnippetAudio'
 
 export function InspectorPanel() {
   const selectedItem = useAppStore((state) => state.selectedItem)
+  const selectedProjectId = useAppStore((state) => state.selectedProjectId)
+  const projects = useAppStore((state) => state.projects)
+  const snippets = useSnippets()
 
-  const handleDownload = () => {
-    // TODO: Implement snippet download
-    console.log('Download snippet')
-  }
+  const project = selectedProjectId ? projects.find((p) => p.id === selectedProjectId) : undefined
+
+  const { audioUrl, isGenerating, error, generate, reset } = useSnippetAudio({
+    audioFileId: project?.audioFileId,
+    startTime: selectedItem?.startTime ?? 0,
+    endTime: selectedItem?.endTime ?? 0,
+  })
+
+  // Auto-generate audio when selection changes
+  useEffect(() => {
+    reset()
+    if (selectedItem) {
+      generate()
+    }
+  }, [selectedItem?.id, reset, generate])
 
   const handleSaveSnippet = () => {
-    // TODO: Implement save snippet to project
-    console.log('Save snippet to project')
+    if (!selectedItem) return
+
+    const snippet = {
+      id: crypto.randomUUID(),
+      name: `Snippet ${snippets.length + 1}`,
+      text: selectedItem.text ?? '',
+      startTime: selectedItem.startTime,
+      endTime: selectedItem.endTime,
+    }
+
+    addSnippet(snippet)
+    selectSnippet(snippet)
   }
 
   if (!selectedItem) {
@@ -101,10 +127,23 @@ export function InspectorPanel() {
 
       {/* Actions */}
       <div className="space-y-2 p-4">
-        <Button className="w-full" onClick={handleDownload}>
-          <Download className="mr-2 h-4 w-4" />
-          Download Snippet
-        </Button>
+        {isGenerating && (
+          <div className="flex items-center justify-center py-2 text-sm text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Generating audio...
+          </div>
+        )}
+
+        {error && <p className="text-xs text-destructive">{error}</p>}
+
+        {audioUrl && (
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-muted-foreground">
+              Audio Preview (right-click to download)
+            </label>
+            <audio controls src={audioUrl} className="w-full" />
+          </div>
+        )}
 
         {selectedItem.type === 'segment' && (
           <Button variant="secondary" className="w-full" onClick={handleSaveSnippet}>

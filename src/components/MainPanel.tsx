@@ -5,12 +5,12 @@ import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAudioPlayer } from '@/hooks/useAudioPlayer'
-import { addSnippet, selectSnippet, setIsPlaying, useAppStore, useTranscript, useSnippets } from '@/store'
+import { selectSnippet, selectTemporarySnippet, setIsPlaying, useAppStore, useSnippets, useTranscript } from '@/store'
+import type { TranscriptWord } from '@/types'
 import { AlertCircle, FileAudio, Settings, Upload } from 'lucide-react'
-import { useState, useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatTime, PlaybackControls } from './PlaybackControls'
 import { SpeakersPanel } from './SpeakersPanel'
-import type { TranscriptWord } from '@/types'
 
 interface WordPosition {
   segmentIndex: number
@@ -42,6 +42,14 @@ export function MainPanel() {
     isPlaying,
     onPlaybackEnd: () => setIsPlaying(false),
   })
+
+  // Reset selection state when project changes
+  useEffect(() => {
+    setSelectionStart(null)
+    setSelectionEnd(null)
+    setIsSelecting(false)
+    setHoverPosition(null)
+  }, [selectedProjectId])
 
   // Flatten all words with their positions for easier comparison
   const allWords = useMemo(() => {
@@ -106,20 +114,12 @@ export function MainPanel() {
           const endTime = selectedWords[selectedWords.length - 1].word.end
           const text = selectedWords.map(w => w.word.text).join(' ')
 
-          const snippet = {
-            id: crypto.randomUUID(),
-            name: `Snippet ${snippets.length + 1}`,
-            text,
-            startTime,
-            endTime,
-          }
-
-          addSnippet(snippet)
-          selectSnippet(snippet)
+          // Create temporary selection (not saved until user clicks "Save to Project")
+          selectTemporarySnippet({ text, startTime, endTime })
         }
       }
     }
-  }, [isSelecting, selectionStart, getGlobalIndex, allWords, snippets.length])
+  }, [isSelecting, selectionStart, getGlobalIndex, allWords])
 
   // Handle word hover during selection
   const handleWordHover = useCallback((pos: WordPosition) => {
@@ -145,7 +145,7 @@ export function MainPanel() {
   // Show upload status when processing
   if (uploadStatus === 'uploading' || uploadStatus === 'transcribing') {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-background">
+      <div className="flex h-full flex-col items-center justify-center gap-6 bg-background">
         <div className="flex flex-col items-center gap-4">
           {uploadStatus === 'uploading' ? (
             <Upload className="h-12 w-12 animate-pulse text-primary" />
@@ -169,7 +169,7 @@ export function MainPanel() {
   // Show error status
   if (uploadStatus === 'error' && uploadError) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-background">
+      <div className="flex h-full flex-col items-center justify-center gap-4 bg-background">
         <AlertCircle className="h-12 w-12 text-destructive" />
         <h2 className="text-xl font-semibold">Error</h2>
         <p className="max-w-md text-center text-sm text-muted-foreground">{uploadError}</p>
@@ -179,7 +179,7 @@ export function MainPanel() {
 
   if (!selectedProject) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-background">
+      <div className="flex h-full items-center justify-center bg-background">
         <p className="text-muted-foreground">Select a project or create a new one</p>
       </div>
     )
@@ -218,25 +218,20 @@ export function MainPanel() {
         ) : (
           <ScrollArea className="h-full">
             <div className="p-6">
-              {isSelecting && (
-                <div className="mb-4 rounded-md bg-blue-50 p-2 text-sm text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                  Click another word to complete your selection, or press Escape to cancel
-                </div>
-              )}
               <div className="space-y-6">
                 {transcript.map((segment, segmentIndex) => {
                   const displayName = selectedProject.speakerMap?.[segment.speaker] || segment.speaker
                   return (
                     <div key={segment.id} className="flex gap-4">
-                      {/* Left margin - speaker and timestamp */}
-                      <div className="w-32 flex-shrink-0 text-right">
-                        <div className="sticky top-4">
-                          <Badge variant="secondary" className="mb-1">
-                            {displayName}
-                          </Badge>
+                      {/* Left margin - timestamp and speaker */}
+                      <div className="flex-shrink-0 text-right">
+                        <div className="sticky top-4 flex items-center gap-2">
                           <div className="text-xs text-muted-foreground">
                             {formatTime(segment.startTime)}
                           </div>
+                          <Badge variant="secondary">
+                            {displayName}
+                          </Badge>
                         </div>
                       </div>
 
