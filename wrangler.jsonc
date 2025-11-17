@@ -1,0 +1,7 @@
+{
+  "name": "convo-splitter",
+  "compatibility_date": "2025-11-17",
+  "assets": {
+    "directory": "./dist"
+  }
+}
