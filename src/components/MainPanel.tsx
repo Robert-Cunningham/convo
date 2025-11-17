@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { useAppStore, selectSegment, selectSnippet } from '../store'
-import type { ViewMode } from '../types'
+import { useAppStore, selectSegment, selectSnippet } from '@/store'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Settings, Play, Pause } from 'lucide-react'
 
 export function MainPanel() {
-  const [viewMode, setViewMode] = useState<ViewMode>('transcript')
-
   const projects = useAppStore((state) => state.projects)
   const selectedProjectId = useAppStore((state) => state.selectedProjectId)
   const transcript = useAppStore((state) => state.transcript)
@@ -21,157 +23,109 @@ export function MainPanel() {
 
   if (!selectedProject) {
     return (
-      <div className="flex-1 bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500">Select a project or create a new one</p>
+      <div className="flex flex-1 items-center justify-center bg-background">
+        <p className="text-muted-foreground">Select a project or create a new one</p>
       </div>
     )
   }
 
   return (
-    <div className="flex-1 bg-gray-50 flex flex-col h-full">
+    <div className="flex flex-1 flex-col bg-background">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {selectedProject.name}
-          </h2>
-          <button
+      <div className="flex items-center justify-between border-b p-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">{selectedProject.name}</h2>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleOpenProjectSettings}
-            className="text-gray-500 hover:text-gray-700"
             title="Project Settings"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* View Toggle */}
-        <div className="flex bg-gray-100 rounded-lg p-1">
-          <button
-            onClick={() => setViewMode('transcript')}
-            className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
-              viewMode === 'transcript'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Transcript
-          </button>
-          <button
-            onClick={() => setViewMode('snippets')}
-            className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
-              viewMode === 'snippets'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Snippets
-          </button>
+            <Settings className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {viewMode === 'transcript' ? (
-          <div className="space-y-3">
-            {transcript.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">
-                No transcript available
-              </p>
-            ) : (
-              transcript.map((segment) => (
-                <div
-                  key={segment.id}
-                  onClick={() => selectSegment(segment)}
-                  className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:border-blue-300 hover:shadow transition-all"
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-medium text-blue-600">
-                      {segment.speaker}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {formatTime(segment.startTime)} -{' '}
-                      {formatTime(segment.endTime)}
-                    </span>
-                  </div>
-                  <p className="text-gray-700 text-sm">{segment.text}</p>
-                </div>
-              ))
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {snippets.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">
-                No snippets saved yet
-              </p>
-            ) : (
-              snippets.map((snippet) => (
-                <div
-                  key={snippet.id}
-                  onClick={() => selectSnippet(snippet)}
-                  className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:border-blue-300 hover:shadow transition-all"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-900">
-                      {snippet.name}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {formatTime(snippet.startTime)} -{' '}
-                      {formatTime(snippet.endTime)}
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </div>
+      <Tabs defaultValue="transcript" className="flex flex-1 flex-col">
+        <div className="border-b px-4">
+          <TabsList>
+            <TabsTrigger value="transcript">Transcript</TabsTrigger>
+            <TabsTrigger value="snippets">Snippets</TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="transcript" className="mt-0 flex-1">
+          <ScrollArea className="h-full">
+            <div className="space-y-3 p-4">
+              {transcript.length === 0 ? (
+                <p className="py-8 text-center text-muted-foreground">
+                  No transcript available
+                </p>
+              ) : (
+                transcript.map((segment) => (
+                  <Card
+                    key={segment.id}
+                    className="cursor-pointer transition-colors hover:bg-accent"
+                    onClick={() => selectSegment(segment)}
+                  >
+                    <CardContent className="p-3">
+                      <div className="mb-1 flex items-center gap-2">
+                        <Badge variant="secondary">{segment.speaker}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
+                        </span>
+                      </div>
+                      <p className="text-sm">{segment.text}</p>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="snippets" className="mt-0 flex-1">
+          <ScrollArea className="h-full">
+            <div className="space-y-3 p-4">
+              {snippets.length === 0 ? (
+                <p className="py-8 text-center text-muted-foreground">
+                  No snippets saved yet
+                </p>
+              ) : (
+                snippets.map((snippet) => (
+                  <Card
+                    key={snippet.id}
+                    className="cursor-pointer transition-colors hover:bg-accent"
+                    onClick={() => selectSnippet(snippet)}
+                  >
+                    <CardContent className="flex items-center justify-between p-3">
+                      <span className="text-sm font-medium">{snippet.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatTime(snippet.startTime)} - {formatTime(snippet.endTime)}
+                      </span>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
 
       {/* Playback Controls */}
-      <div className="bg-white border-t border-gray-200 p-4 flex justify-center">
-        <button
+      <div className="flex justify-center border-t p-4">
+        <Button
+          size="lg"
+          className="rounded-full"
           onClick={togglePlayback}
-          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 transition-colors"
         >
           {isPlaying ? (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <Pause className="h-5 w-5" />
           ) : (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <Play className="h-5 w-5" />
           )}
-        </button>
+        </Button>
       </div>
     </div>
   )
