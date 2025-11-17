@@ -1,13 +1,14 @@
-import { useAppStore, selectSegment, selectSnippet, setIsPlaying } from '@/store'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
-import { Settings, Play, Pause, Upload, FileAudio, AlertCircle } from 'lucide-react'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAudioPlayer } from '@/hooks/useAudioPlayer'
+import { selectSegment, selectSnippet, setIsPlaying, useAppStore } from '@/store'
+import { AlertCircle, FileAudio, Settings, Upload } from 'lucide-react'
 import { Virtuoso } from 'react-virtuoso'
+import { formatTime, PlaybackControls } from './PlaybackControls'
 import { SpeakersPanel } from './SpeakersPanel'
 
 export function MainPanel() {
@@ -23,7 +24,7 @@ export function MainPanel() {
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
 
   // Audio player hook
-  const { currentTime, duration, isLoaded } = useAudioPlayer({
+  const { currentTime, duration, isLoaded, seek } = useAudioPlayer({
     audioFileId: selectedProject?.audioFileId ?? null,
     isPlaying,
     onPlaybackEnd: () => setIsPlaying(false),
@@ -166,35 +167,14 @@ export function MainPanel() {
         <SpeakersPanel />
       </TabsContent>
 
-      {/* Playback Controls - Sticky Bottom */}
-      <div className="sticky bottom-0 z-10 flex flex-col items-center gap-2 border-t bg-background p-4">
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">
-            {formatTime(currentTime)}
-          </span>
-          <Button
-            size="lg"
-            className="rounded-full"
-            onClick={togglePlayback}
-            disabled={!isLoaded}
-          >
-            {isPlaying ? (
-              <Pause className="h-5 w-5" />
-            ) : (
-              <Play className="h-5 w-5" />
-            )}
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {formatTime(duration)}
-          </span>
-        </div>
-      </div>
+      <PlaybackControls
+        currentTime={currentTime}
+        duration={duration}
+        isLoaded={isLoaded}
+        isPlaying={isPlaying}
+        onSeek={seek}
+        onTogglePlayback={togglePlayback}
+      />
     </Tabs>
   )
-}
-
-function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${secs.toString().padStart(2, '0')}`
 }

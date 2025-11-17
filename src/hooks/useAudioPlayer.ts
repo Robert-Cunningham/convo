@@ -30,6 +30,7 @@ export function useAudioPlayer({
   const playbackCancelledRef = useRef<boolean>(false)
   const durationRef = useRef<number>(0)
   const onPlaybackEndRef = useRef(onPlaybackEnd)
+  const isPlayingRef = useRef(isPlaying)
 
   const [state, setState] = useState<AudioPlayerState>({
     currentTime: 0,
@@ -37,10 +38,12 @@ export function useAudioPlayer({
     isLoaded: false,
     error: null,
   })
+  const [seekCounter, setSeekCounter] = useState(0)
 
   // Keep refs in sync
   onPlaybackEndRef.current = onPlaybackEnd
   durationRef.current = state.duration
+  isPlayingRef.current = isPlaying
 
   // Load the audio file
   useEffect(() => {
@@ -218,7 +221,7 @@ export function useAudioPlayer({
     return () => {
       stopPlayback()
     }
-  }, [isPlaying, state.isLoaded, updateCurrentTime])
+  }, [isPlaying, state.isLoaded, updateCurrentTime, seekCounter])
 
   // Seek to a specific time
   const seek = useCallback(
@@ -226,6 +229,10 @@ export function useAudioPlayer({
       const clampedTime = Math.max(0, Math.min(time, state.duration))
       playbackOffsetRef.current = clampedTime
       setState((prev) => ({ ...prev, currentTime: clampedTime }))
+      // If currently playing, trigger restart from new position
+      if (isPlayingRef.current) {
+        setSeekCounter((c) => c + 1)
+      }
     },
     [state.duration]
   )
