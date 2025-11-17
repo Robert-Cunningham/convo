@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { useShallow } from 'zustand/react/shallow'
 import { produce } from 'immer'
 import type { Project, TranscriptSegment, Snippet, SelectedItem, UploadStatus } from './types'
 import { saveAudioFile, loadApiKey } from './lib/storage'
@@ -11,8 +12,6 @@ interface AppState {
   selectedProjectId: string | null
 
   // Non-persisted state
-  transcript: TranscriptSegment[]
-  snippets: Snippet[]
   isPlaying: boolean
   selectedItem: SelectedItem | null
   uploadStatus: UploadStatus
@@ -34,8 +33,6 @@ export const useAppStore = create<AppState>()(
       selectedProjectId: null,
 
       // Non-persisted state
-      transcript: [],
-      snippets: [],
       isPlaying: false,
       selectedItem: null,
       uploadStatus: 'idle',
@@ -66,22 +63,9 @@ export const addProject = (project: Project) =>
 
 export const selectProject = (id: string) =>
   useAppStore.getState().mutate((s) => {
-    const project = s.projects.find((p) => p.id === id)
     s.selectedProjectId = id
     s.selectedItem = null
-    s.transcript = project?.transcript ?? []
-    s.snippets = []
     s.isPlaying = false
-  })
-
-export const setTranscript = (transcript: TranscriptSegment[]) =>
-  useAppStore.getState().mutate((s) => {
-    s.transcript = transcript
-  })
-
-export const setSnippets = (snippets: Snippet[]) =>
-  useAppStore.getState().mutate((s) => {
-    s.snippets = snippets
   })
 
 export const setIsPlaying = (isPlaying: boolean) =>
@@ -114,7 +98,13 @@ export const selectSnippet = (snippet: Snippet) =>
 
 export const addSnippet = (snippet: Snippet) =>
   useAppStore.getState().mutate((s) => {
-    s.snippets.push(snippet)
+    const project = s.projects.find((p) => p.id === s.selectedProjectId)
+    if (project) {
+      if (!project.snippets) {
+        project.snippets = []
+      }
+      project.snippets.push(snippet)
+    }
   })
 
 export const setUploadStatus = (status: UploadStatus, error?: string) =>
@@ -173,6 +163,7 @@ export const createProjectFromFile = async (file: File) => {
       audioFileName: file.name,
       audioFileId,
       transcript,
+      snippets: [],
       speakerMap: {},
       createdAt: Date.now(),
     }
@@ -181,8 +172,6 @@ export const createProjectFromFile = async (file: File) => {
     store.mutate((s) => {
       s.projects.push(project)
       s.selectedProjectId = projectId
-      s.transcript = transcript
-      s.snippets = []
       s.selectedItem = null
       s.isPlaying = false
       s.uploadStatus = 'complete'
@@ -197,4 +186,25 @@ export const createProjectFromFile = async (file: File) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     setUploadStatus('error', errorMessage)
   }
+}
+
+// Custom hooks for derived state
+export const useTranscript = () => {
+  return useAppStore(
+    useShallow((state) => {
+      if (!state.selectedProjectId) return []
+      const project = state.projects.find((p) => p.id === state.selectedProjectId)
+      return project?.transcript ?? []
+    })
+  )
+}
+
+export const useSnippets = () => {
+  return useAppStore(
+    useShallow((state) => {
+      if (!state.selectedProjectId) return []
+      const project = state.projects.find((p) => p.id === state.selectedProjectId)
+      return project?.snippets ?? []
+    })
+  )
 }

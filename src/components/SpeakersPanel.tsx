@@ -1,4 +1,4 @@
-import { useAppStore, updateSpeakerName } from '@/store'
+import { useAppStore, updateSpeakerName, useTranscript } from '@/store'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -7,7 +7,7 @@ import { useMemo } from 'react'
 export function SpeakersPanel() {
   const projects = useAppStore((state) => state.projects)
   const selectedProjectId = useAppStore((state) => state.selectedProjectId)
-  const transcript = useAppStore((state) => state.transcript)
+  const transcript = useTranscript()
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
 

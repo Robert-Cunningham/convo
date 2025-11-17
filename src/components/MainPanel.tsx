@@ -5,7 +5,7 @@ import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAudioPlayer } from '@/hooks/useAudioPlayer'
-import { selectSegment, selectSnippet, setIsPlaying, useAppStore } from '@/store'
+import { selectSegment, selectSnippet, setIsPlaying, useAppStore, useTranscript, useSnippets } from '@/store'
 import { AlertCircle, FileAudio, Settings, Upload } from 'lucide-react'
 import { Virtuoso } from 'react-virtuoso'
 import { formatTime, PlaybackControls } from './PlaybackControls'
@@ -14,8 +14,8 @@ import { SpeakersPanel } from './SpeakersPanel'
 export function MainPanel() {
   const projects = useAppStore((state) => state.projects)
   const selectedProjectId = useAppStore((state) => state.selectedProjectId)
-  const transcript = useAppStore((state) => state.transcript)
-  const snippets = useAppStore((state) => state.snippets)
+  const transcript = useTranscript()
+  const snippets = useSnippets()
   const isPlaying = useAppStore((state) => state.isPlaying)
   const togglePlayback = useAppStore((state) => state.togglePlayback)
   const uploadStatus = useAppStore((state) => state.uploadStatus)
@@ -111,7 +111,7 @@ export function MainPanel() {
         ) : (
           <Virtuoso
             data={transcript}
-            itemContent={(index, segment) => {
+            itemContent={(_index, segment) => {
               const displayName = selectedProject.speakerMap?.[segment.speaker] || segment.speaker
               return (
                 <div className="px-4 pb-3 first:pt-4">
