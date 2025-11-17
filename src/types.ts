@@ -4,6 +4,7 @@ export interface Project {
   audioFileName: string
   audioFileId: string // IndexedDB key
   transcript: TranscriptSegment[]
+  speakerMap: Record<string, string> // Maps speaker IDs to custom names
   createdAt: number
 }
 

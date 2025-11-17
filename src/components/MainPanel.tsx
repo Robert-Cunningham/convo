@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress'
 import { Settings, Play, Pause, Upload, FileAudio, AlertCircle } from 'lucide-react'
 import { useAudioPlayer } from '@/hooks/useAudioPlayer'
 import { Virtuoso } from 'react-virtuoso'
+import { SpeakersPanel } from './SpeakersPanel'
 
 export function MainPanel() {
   const projects = useAppStore((state) => state.projects)
@@ -77,9 +78,9 @@ export function MainPanel() {
   }
 
   return (
-    <div className="relative flex h-full flex-col bg-background">
-      {/* Header - Sticky Top */}
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background p-4">
+    <Tabs defaultValue="transcript" className="relative flex h-full flex-col bg-background">
+      {/* Header - Sticky Top with Tabs */}
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-4 py-2">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-semibold">{selectedProject.name}</h2>
           <Button
@@ -91,28 +92,27 @@ export function MainPanel() {
             <Settings className="h-4 w-4" />
           </Button>
         </div>
+        <TabsList>
+          <TabsTrigger value="transcript">Transcript</TabsTrigger>
+          <TabsTrigger value="snippets">Snippets</TabsTrigger>
+          <TabsTrigger value="speakers">Speakers</TabsTrigger>
+        </TabsList>
       </div>
 
       {/* Content Area - Scrollable */}
-      <Tabs defaultValue="transcript" className="flex min-h-0 flex-1 flex-col">
-        <div className="border-b px-4">
-          <TabsList>
-            <TabsTrigger value="transcript">Transcript</TabsTrigger>
-            <TabsTrigger value="snippets">Snippets</TabsTrigger>
-          </TabsList>
-        </div>
-
-        <TabsContent value="transcript" className="mt-0 min-h-0 flex-1">
-          {transcript.length === 0 ? (
-            <div className="flex h-full items-center justify-center">
-              <p className="py-8 text-center text-muted-foreground">
-                No transcript available
-              </p>
-            </div>
-          ) : (
-            <Virtuoso
-              data={transcript}
-              itemContent={(index, segment) => (
+      <TabsContent value="transcript" className="mt-0 min-h-0 flex-1">
+        {transcript.length === 0 ? (
+          <div className="flex h-full items-center justify-center">
+            <p className="py-8 text-center text-muted-foreground">
+              No transcript available
+            </p>
+          </div>
+        ) : (
+          <Virtuoso
+            data={transcript}
+            itemContent={(index, segment) => {
+              const displayName = selectedProject.speakerMap?.[segment.speaker] || segment.speaker
+              return (
                 <div className="px-4 pb-3 first:pt-4">
                   <Card
                     className="cursor-pointer transition-colors hover:bg-accent"
@@ -120,7 +120,7 @@ export function MainPanel() {
                   >
                     <CardContent className="p-3">
                       <div className="mb-1 flex items-center gap-2">
-                        <Badge variant="secondary">{segment.speaker}</Badge>
+                        <Badge variant="secondary">{displayName}</Badge>
                         <span className="text-xs text-muted-foreground">
                           {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
                         </span>
@@ -129,38 +129,42 @@ export function MainPanel() {
                     </CardContent>
                   </Card>
                 </div>
-              )}
-            />
-          )}
-        </TabsContent>
+              )
+            }}
+          />
+        )}
+      </TabsContent>
 
-        <TabsContent value="snippets" className="mt-0 min-h-0 flex-1">
-          <ScrollArea className="h-full">
-            <div className="space-y-3 p-4">
-              {snippets.length === 0 ? (
-                <p className="py-8 text-center text-muted-foreground">
-                  No snippets saved yet
-                </p>
-              ) : (
-                snippets.map((snippet) => (
-                  <Card
-                    key={snippet.id}
-                    className="cursor-pointer transition-colors hover:bg-accent"
-                    onClick={() => selectSnippet(snippet)}
-                  >
-                    <CardContent className="flex items-center justify-between p-3">
-                      <span className="text-sm font-medium">{snippet.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatTime(snippet.startTime)} - {formatTime(snippet.endTime)}
-                      </span>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </TabsContent>
-      </Tabs>
+      <TabsContent value="snippets" className="mt-0 min-h-0 flex-1">
+        <ScrollArea className="h-full">
+          <div className="space-y-3 p-4">
+            {snippets.length === 0 ? (
+              <p className="py-8 text-center text-muted-foreground">
+                No snippets saved yet
+              </p>
+            ) : (
+              snippets.map((snippet) => (
+                <Card
+                  key={snippet.id}
+                  className="cursor-pointer transition-colors hover:bg-accent"
+                  onClick={() => selectSnippet(snippet)}
+                >
+                  <CardContent className="flex items-center justify-between p-3">
+                    <span className="text-sm font-medium">{snippet.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatTime(snippet.startTime)} - {formatTime(snippet.endTime)}
+                    </span>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </TabsContent>
+
+      <TabsContent value="speakers" className="mt-0 min-h-0 flex-1">
+        <SpeakersPanel />
+      </TabsContent>
 
       {/* Playback Controls - Sticky Bottom */}
       <div className="sticky bottom-0 z-10 flex flex-col items-center gap-2 border-t bg-background p-4">
@@ -185,7 +189,7 @@ export function MainPanel() {
           </span>
         </div>
       </div>
-    </div>
+    </Tabs>
   )
 }
 

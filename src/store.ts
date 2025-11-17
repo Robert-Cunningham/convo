@@ -123,6 +123,22 @@ export const setUploadStatus = (status: UploadStatus, error?: string) =>
     s.uploadError = error ?? null
   })
 
+export const updateSpeakerName = (projectId: string, speakerId: string, customName: string) =>
+  useAppStore.getState().mutate((s) => {
+    const project = s.projects.find((p) => p.id === projectId)
+    if (project) {
+      // Initialize speakerMap if it doesn't exist (for old projects)
+      if (!project.speakerMap) {
+        project.speakerMap = {}
+      }
+      if (customName.trim() === '') {
+        delete project.speakerMap[speakerId]
+      } else {
+        project.speakerMap[speakerId] = customName.trim()
+      }
+    }
+  })
+
 export const createProjectFromFile = async (file: File) => {
   const store = useAppStore.getState()
 
@@ -157,6 +173,7 @@ export const createProjectFromFile = async (file: File) => {
       audioFileName: file.name,
       audioFileId,
       transcript,
+      speakerMap: {},
       createdAt: Date.now(),
     }
 
