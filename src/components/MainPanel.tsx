@@ -1,46 +1,27 @@
 import { useState } from 'react'
+import { useAppStore } from '../store'
+import type { ViewMode } from '../types'
 
-type ViewMode = 'transcript' | 'snippets'
-
-interface TranscriptSegment {
-  id: string
-  speaker: string
-  text: string
-  startTime: number
-  endTime: number
-}
-
-interface Snippet {
-  id: string
-  name: string
-  startTime: number
-  endTime: number
-}
-
-interface MainPanelProps {
-  projectName?: string
-  transcript: TranscriptSegment[]
-  snippets: Snippet[]
-  isPlaying: boolean
-  onPlayPause: () => void
-  onSelectSegment: (segment: TranscriptSegment) => void
-  onSelectSnippet: (snippet: Snippet) => void
-  onOpenProjectSettings: () => void
-}
-
-export function MainPanel({
-  projectName,
-  transcript,
-  snippets,
-  isPlaying,
-  onPlayPause,
-  onSelectSegment,
-  onSelectSnippet,
-  onOpenProjectSettings,
-}: MainPanelProps) {
+export function MainPanel() {
   const [viewMode, setViewMode] = useState<ViewMode>('transcript')
 
-  if (!projectName) {
+  const projects = useAppStore((state) => state.projects)
+  const selectedProjectId = useAppStore((state) => state.selectedProjectId)
+  const transcript = useAppStore((state) => state.transcript)
+  const snippets = useAppStore((state) => state.snippets)
+  const isPlaying = useAppStore((state) => state.isPlaying)
+  const togglePlayback = useAppStore((state) => state.togglePlayback)
+  const selectSegment = useAppStore((state) => state.selectSegment)
+  const selectSnippet = useAppStore((state) => state.selectSnippet)
+
+  const selectedProject = projects.find((p) => p.id === selectedProjectId)
+
+  const handleOpenProjectSettings = () => {
+    // TODO: Implement project settings (speaker mapping)
+    console.log('Open project settings')
+  }
+
+  if (!selectedProject) {
     return (
       <div className="flex-1 bg-gray-50 flex items-center justify-center">
         <p className="text-gray-500">Select a project or create a new one</p>
@@ -53,9 +34,11 @@ export function MainPanel({
       {/* Header */}
       <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h2 className="text-lg font-semibold text-gray-900">{projectName}</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {selectedProject.name}
+          </h2>
           <button
-            onClick={onOpenProjectSettings}
+            onClick={handleOpenProjectSettings}
             className="text-gray-500 hover:text-gray-700"
             title="Project Settings"
           >
@@ -111,7 +94,7 @@ export function MainPanel({
               transcript.map((segment) => (
                 <div
                   key={segment.id}
-                  onClick={() => onSelectSegment(segment)}
+                  onClick={() => selectSegment(segment)}
                   className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:border-blue-300 hover:shadow transition-all"
                 >
                   <div className="flex items-center gap-2 mb-1">
@@ -138,7 +121,7 @@ export function MainPanel({
               snippets.map((snippet) => (
                 <div
                   key={snippet.id}
-                  onClick={() => onSelectSnippet(snippet)}
+                  onClick={() => selectSnippet(snippet)}
                   className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:border-blue-300 hover:shadow transition-all"
                 >
                   <div className="flex items-center justify-between">
@@ -160,7 +143,7 @@ export function MainPanel({
       {/* Playback Controls */}
       <div className="bg-white border-t border-gray-200 p-4 flex justify-center">
         <button
-          onClick={onPlayPause}
+          onClick={togglePlayback}
           className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 transition-colors"
         >
           {isPlaying ? (

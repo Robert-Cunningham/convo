@@ -1,31 +1,26 @@
-import { useState } from 'react'
+import { useAppStore } from '../store'
 
-interface Project {
-  id: string
-  name: string
-}
+export function Sidebar() {
+  const projects = useAppStore((state) => state.projects)
+  const selectedProjectId = useAppStore((state) => state.selectedProjectId)
+  const selectProject = useAppStore((state) => state.selectProject)
 
-interface SidebarProps {
-  projects: Project[]
-  selectedProjectId: string | null
-  onSelectProject: (id: string) => void
-  onNewProject: () => void
-  onOpenSettings: () => void
-}
+  const handleNewProject = () => {
+    // TODO: Implement new project creation with file upload
+    console.log('Create new project')
+  }
 
-export function Sidebar({
-  projects,
-  selectedProjectId,
-  onSelectProject,
-  onNewProject,
-  onOpenSettings,
-}: SidebarProps) {
+  const handleOpenSettings = () => {
+    // TODO: Implement settings modal
+    console.log('Open settings')
+  }
+
   return (
     <div className="w-64 bg-gray-900 text-white flex flex-col h-full">
       {/* New Project Button */}
       <div className="p-4 border-b border-gray-700">
         <button
-          onClick={onNewProject}
+          onClick={handleNewProject}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
         >
           + New Project
@@ -45,7 +40,7 @@ export function Sidebar({
               {projects.map((project) => (
                 <li key={project.id}>
                   <button
-                    onClick={() => onSelectProject(project.id)}
+                    onClick={() => selectProject(project.id)}
                     className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
                       selectedProjectId === project.id
                         ? 'bg-gray-700 text-white'
@@ -64,7 +59,7 @@ export function Sidebar({
       {/* Settings Button */}
       <div className="p-4 border-t border-gray-700">
         <button
-          onClick={onOpenSettings}
+          onClick={handleOpenSettings}
           className="w-full flex items-center justify-center gap-2 text-gray-300 hover:text-white py-2 px-4 rounded hover:bg-gray-800 transition-colors"
         >
           <svg
