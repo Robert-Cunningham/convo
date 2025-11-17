@@ -118,13 +118,6 @@ export function MainPanel() {
           selectSnippet(snippet)
         }
       }
-
-      // Clear selection after creating snippet
-      setTimeout(() => {
-        setSelectionStart(null)
-        setSelectionEnd(null)
-        setHoverPosition(null)
-      }, 100)
     }
   }, [isSelecting, selectionStart, getGlobalIndex, allWords, snippets.length])
 
@@ -252,19 +245,22 @@ export function MainPanel() {
                         {segment.words?.map((word, wordIndex) => {
                           const pos: WordPosition = { segmentIndex, wordIndex, word }
                           const isSelected = isWordInSelection(pos)
+                          const isLastWord = wordIndex === (segment.words?.length ?? 0) - 1
 
                           return (
-                            <span
-                              key={`${segment.id}-${wordIndex}`}
-                              onClick={() => handleWordClick(pos)}
-                              onMouseEnter={() => handleWordHover(pos)}
-                              className={`cursor-pointer rounded px-0.5 transition-colors ${
-                                isSelected
-                                  ? 'bg-yellow-200 dark:bg-yellow-800'
-                                  : 'hover:bg-muted'
-                              }`}
-                            >
-                              {word.text}{' '}
+                            <span key={`${segment.id}-${wordIndex}`}>
+                              <span
+                                onClick={() => handleWordClick(pos)}
+                                onMouseEnter={() => handleWordHover(pos)}
+                                className={`transition-colors ${
+                                  isSelected
+                                    ? 'bg-yellow-200 dark:bg-yellow-800'
+                                    : 'hover:bg-muted'
+                                }`}
+                              >
+                                {word.text}
+                              </span>
+                              {!isLastWord && ' '}
                             </span>
                           )
                         })}
