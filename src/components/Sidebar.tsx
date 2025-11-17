@@ -1,25 +1,39 @@
-import { useAppStore, selectProject } from '@/store'
+import { useState } from 'react'
+import { useAppStore, selectProject, createProjectFromFile } from '@/store'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Plus, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { NewProjectDialog } from './NewProjectDialog'
+import { SettingsDialog } from './SettingsDialog'
 
 export function Sidebar() {
   const projects = useAppStore((state) => state.projects)
   const selectedProjectId = useAppStore((state) => state.selectedProjectId)
+  const [newProjectOpen, setNewProjectOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const handleNewProject = () => {
-    // TODO: Implement new project creation with file upload
-    console.log('Create new project')
+    setNewProjectOpen(true)
   }
 
   const handleOpenSettings = () => {
-    // TODO: Implement settings modal
-    console.log('Open settings')
+    setSettingsOpen(true)
+  }
+
+  const handleFileSelected = (file: File) => {
+    createProjectFromFile(file)
   }
 
   return (
+    <>
+      <NewProjectDialog
+        open={newProjectOpen}
+        onOpenChange={setNewProjectOpen}
+        onFileSelected={handleFileSelected}
+      />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     <div className="flex h-full flex-col border-r bg-muted/40">
       <div className="p-4">
         <Button onClick={handleNewProject} className="w-full">
@@ -70,5 +84,6 @@ export function Sidebar() {
         </Button>
       </div>
     </div>
+    </>
   )
 }

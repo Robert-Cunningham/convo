@@ -1,7 +1,13 @@
 export interface Project {
   id: string
   name: string
+  audioFileName: string
+  audioFileId: string // IndexedDB key
+  transcript: TranscriptSegment[]
+  createdAt: number
 }
+
+export type UploadStatus = 'idle' | 'uploading' | 'transcribing' | 'complete' | 'error'
 
 export interface TranscriptSegment {
   id: string

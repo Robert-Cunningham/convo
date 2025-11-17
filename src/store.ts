@@ -1,15 +1,22 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { produce } from 'immer'
-import type { Project, TranscriptSegment, Snippet, SelectedItem } from './types'
+import type { Project, TranscriptSegment, Snippet, SelectedItem, UploadStatus } from './types'
+import { saveAudioFile, loadApiKey } from './lib/storage'
+import { transcribeAudio } from './lib/elevenlabs'
 
 interface AppState {
-  // State
+  // Persisted state
   projects: Project[]
   selectedProjectId: string | null
+
+  // Non-persisted state
   transcript: TranscriptSegment[]
   snippets: Snippet[]
   isPlaying: boolean
   selectedItem: SelectedItem | null
+  uploadStatus: UploadStatus
+  uploadError: string | null
 
   // Single immer-based mutator
   mutate: (fn: (state: AppState) => void) => void
@@ -19,22 +26,37 @@ interface AppState {
   togglePlayback: () => void
 }
 
-export const useAppStore = create<AppState>((set) => ({
-  // Initial state
-  projects: [],
-  selectedProjectId: null,
-  transcript: [],
-  snippets: [],
-  isPlaying: false,
-  selectedItem: null,
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+      // Persisted state
+      projects: [],
+      selectedProjectId: null,
 
-  // Single mutator using immer's produce
-  mutate: (fn) => set(produce(fn)),
+      // Non-persisted state
+      transcript: [],
+      snippets: [],
+      isPlaying: false,
+      selectedItem: null,
+      uploadStatus: 'idle',
+      uploadError: null,
 
-  // Simple top-level actions
-  clearSelection: () => set({ selectedItem: null }),
-  togglePlayback: () => set((s) => ({ isPlaying: !s.isPlaying })),
-}))
+      // Single mutator using immer's produce
+      mutate: (fn) => set(produce(fn)),
+
+      // Simple top-level actions
+      clearSelection: () => set({ selectedItem: null }),
+      togglePlayback: () => set((s) => ({ isPlaying: !s.isPlaying })),
+    }),
+    {
+      name: 'convo-standalone-storage',
+      partialize: (state) => ({
+        projects: state.projects,
+        selectedProjectId: state.selectedProjectId,
+      }),
+    }
+  )
+)
 
 // Action helpers
 export const addProject = (project: Project) =>
@@ -44,9 +66,10 @@ export const addProject = (project: Project) =>
 
 export const selectProject = (id: string) =>
   useAppStore.getState().mutate((s) => {
+    const project = s.projects.find((p) => p.id === id)
     s.selectedProjectId = id
     s.selectedItem = null
-    s.transcript = []
+    s.transcript = project?.transcript ?? []
     s.snippets = []
     s.isPlaying = false
   })
@@ -93,3 +116,68 @@ export const addSnippet = (snippet: Snippet) =>
   useAppStore.getState().mutate((s) => {
     s.snippets.push(snippet)
   })
+
+export const setUploadStatus = (status: UploadStatus, error?: string) =>
+  useAppStore.getState().mutate((s) => {
+    s.uploadStatus = status
+    s.uploadError = error ?? null
+  })
+
+export const createProjectFromFile = async (file: File) => {
+  const store = useAppStore.getState()
+
+  // Check for API key
+  const apiKey = loadApiKey()
+  if (!apiKey) {
+    setUploadStatus('error', 'Please set your ElevenLabs API key in Settings')
+    return
+  }
+
+  try {
+    // Set uploading status
+    setUploadStatus('uploading')
+
+    // Generate IDs
+    const projectId = crypto.randomUUID()
+    const audioFileId = crypto.randomUUID()
+
+    // Save audio file to IndexedDB
+    await saveAudioFile(audioFileId, file)
+
+    // Set transcribing status
+    setUploadStatus('transcribing')
+
+    // Transcribe the audio
+    const transcript = await transcribeAudio(file, apiKey)
+
+    // Create the project
+    const project: Project = {
+      id: projectId,
+      name: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
+      audioFileName: file.name,
+      audioFileId,
+      transcript,
+      createdAt: Date.now(),
+    }
+
+    // Add project to store (automatically persisted via zustand persist middleware)
+    store.mutate((s) => {
+      s.projects.push(project)
+      s.selectedProjectId = projectId
+      s.transcript = transcript
+      s.snippets = []
+      s.selectedItem = null
+      s.isPlaying = false
+      s.uploadStatus = 'complete'
+      s.uploadError = null
+    })
+
+    // Reset status after a short delay
+    setTimeout(() => {
+      setUploadStatus('idle')
+    }, 2000)
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+    setUploadStatus('error', errorMessage)
+  }
+}

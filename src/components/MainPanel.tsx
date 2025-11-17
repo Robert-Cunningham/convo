@@ -1,10 +1,12 @@
-import { useAppStore, selectSegment, selectSnippet } from '@/store'
+import { useAppStore, selectSegment, selectSnippet, setIsPlaying } from '@/store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Settings, Play, Pause } from 'lucide-react'
+import { Progress } from '@/components/ui/progress'
+import { Settings, Play, Pause, Upload, FileAudio, AlertCircle } from 'lucide-react'
+import { useAudioPlayer } from '@/hooks/useAudioPlayer'
 
 export function MainPanel() {
   const projects = useAppStore((state) => state.projects)
@@ -13,12 +15,56 @@ export function MainPanel() {
   const snippets = useAppStore((state) => state.snippets)
   const isPlaying = useAppStore((state) => state.isPlaying)
   const togglePlayback = useAppStore((state) => state.togglePlayback)
+  const uploadStatus = useAppStore((state) => state.uploadStatus)
+  const uploadError = useAppStore((state) => state.uploadError)
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
+
+  // Audio player hook
+  const { currentTime, duration, isLoaded } = useAudioPlayer({
+    audioFileId: selectedProject?.audioFileId ?? null,
+    isPlaying,
+    onPlaybackEnd: () => setIsPlaying(false),
+  })
 
   const handleOpenProjectSettings = () => {
     // TODO: Implement project settings (speaker mapping)
     console.log('Open project settings')
+  }
+
+  // Show upload status when processing
+  if (uploadStatus === 'uploading' || uploadStatus === 'transcribing') {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-background">
+        <div className="flex flex-col items-center gap-4">
+          {uploadStatus === 'uploading' ? (
+            <Upload className="h-12 w-12 animate-pulse text-primary" />
+          ) : (
+            <FileAudio className="h-12 w-12 animate-pulse text-primary" />
+          )}
+          <h2 className="text-xl font-semibold">
+            {uploadStatus === 'uploading' ? 'Uploading...' : 'Transcribing...'}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {uploadStatus === 'uploading'
+              ? 'Saving your file...'
+              : 'Processing audio with ElevenLabs Scribe...'}
+          </p>
+        </div>
+        <Progress value={uploadStatus === 'uploading' ? 30 : 70} className="w-64" />
+      </div>
+    )
+  }
+
+  // Show error status
+  if (uploadStatus === 'error' && uploadError) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-background">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <h2 className="text-xl font-semibold">Error</h2>
+        <p className="max-w-md text-center text-sm text-muted-foreground">{uploadError}</p>
+      </div>
+    )
   }
 
   if (!selectedProject) {
@@ -114,18 +160,27 @@ export function MainPanel() {
       </Tabs>
 
       {/* Playback Controls */}
-      <div className="flex justify-center border-t p-4">
-        <Button
-          size="lg"
-          className="rounded-full"
-          onClick={togglePlayback}
-        >
-          {isPlaying ? (
-            <Pause className="h-5 w-5" />
-          ) : (
-            <Play className="h-5 w-5" />
-          )}
-        </Button>
+      <div className="flex flex-col items-center gap-2 border-t p-4">
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-muted-foreground">
+            {formatTime(currentTime)}
+          </span>
+          <Button
+            size="lg"
+            className="rounded-full"
+            onClick={togglePlayback}
+            disabled={!isLoaded}
+          >
+            {isPlaying ? (
+              <Pause className="h-5 w-5" />
+            ) : (
+              <Play className="h-5 w-5" />
+            )}
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {formatTime(duration)}
+          </span>
+        </div>
       </div>
     </div>
   )
