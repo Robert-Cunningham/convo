@@ -27,6 +27,9 @@ export function useAudioPlayer({
   const playbackStartTimeRef = useRef<number>(0)
   const playbackOffsetRef = useRef<number>(0)
   const animationFrameRef = useRef<number | null>(null)
+  const playbackCancelledRef = useRef<boolean>(false)
+  const durationRef = useRef<number>(0)
+  const onPlaybackEndRef = useRef(onPlaybackEnd)
 
   const [state, setState] = useState<AudioPlayerState>({
     currentTime: 0,
@@ -34,6 +37,10 @@ export function useAudioPlayer({
     isLoaded: false,
     error: null,
   })
+
+  // Keep refs in sync
+  onPlaybackEndRef.current = onPlaybackEnd
+  durationRef.current = state.duration
 
   // Load the audio file
   useEffect(() => {
@@ -94,7 +101,7 @@ export function useAudioPlayer({
 
   // Update current time during playback
   const updateCurrentTime = useCallback(() => {
-    if (!audioContextRef.current || !isPlaying) return
+    if (!audioContextRef.current || playbackCancelledRef.current) return
 
     const elapsed = audioContextRef.current.currentTime - playbackStartTimeRef.current
     const newTime = playbackOffsetRef.current + elapsed
@@ -104,12 +111,12 @@ export function useAudioPlayer({
       currentTime: Math.min(newTime, prev.duration),
     }))
 
-    if (newTime < state.duration) {
+    if (newTime < durationRef.current) {
       animationFrameRef.current = requestAnimationFrame(updateCurrentTime)
     } else {
-      onPlaybackEnd?.()
+      onPlaybackEndRef.current?.()
     }
-  }, [isPlaying, state.duration, onPlaybackEnd])
+  }, [])
 
   // Handle play/pause
   useEffect(() => {
@@ -117,6 +124,8 @@ export function useAudioPlayer({
 
     async function startPlayback() {
       if (!sinkRef.current) return
+
+      playbackCancelledRef.current = false
 
       // Create AudioContext if needed
       if (!audioContextRef.current) {
@@ -131,7 +140,7 @@ export function useAudioPlayer({
       }
 
       playbackStartTimeRef.current = audioContext.currentTime
-      const startOffset = state.currentTime
+      const startOffset = playbackOffsetRef.current
 
       // Schedule audio buffers for playback
       try {
@@ -139,6 +148,11 @@ export function useAudioPlayer({
         const baseTime = audioContext.currentTime
 
         for await (const { buffer, timestamp } of bufferIterator) {
+          // Check if playback was cancelled
+          if (playbackCancelledRef.current) {
+            break
+          }
+
           const source = audioContext.createBufferSource()
           source.buffer = buffer
           source.connect(audioContext.destination)
@@ -157,14 +171,18 @@ export function useAudioPlayer({
           }
         }
 
-        // Start updating current time
-        animationFrameRef.current = requestAnimationFrame(updateCurrentTime)
+        // Start updating current time (only if not cancelled)
+        if (!playbackCancelledRef.current) {
+          animationFrameRef.current = requestAnimationFrame(updateCurrentTime)
+        }
       } catch (error) {
         console.error('Playback error:', error)
       }
     }
 
     function stopPlayback() {
+      playbackCancelledRef.current = true
+
       // Stop all scheduled sources
       scheduledSourcesRef.current.forEach((source) => {
         try {
@@ -182,11 +200,11 @@ export function useAudioPlayer({
       }
 
       // Save current position
-      if (audioContextRef.current) {
+      if (audioContextRef.current && playbackStartTimeRef.current > 0) {
         const elapsed = audioContextRef.current.currentTime - playbackStartTimeRef.current
         playbackOffsetRef.current = Math.min(
           playbackOffsetRef.current + elapsed,
-          state.duration
+          durationRef.current
         )
       }
     }
@@ -200,7 +218,7 @@ export function useAudioPlayer({
     return () => {
       stopPlayback()
     }
-  }, [isPlaying, state.isLoaded, state.currentTime, state.duration, updateCurrentTime])
+  }, [isPlaying, state.isLoaded, updateCurrentTime])
 
   // Seek to a specific time
   const seek = useCallback(

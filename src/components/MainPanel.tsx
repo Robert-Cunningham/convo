@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
 import { Settings, Play, Pause, Upload, FileAudio, AlertCircle } from 'lucide-react'
 import { useAudioPlayer } from '@/hooks/useAudioPlayer'
+import { Virtuoso } from 'react-virtuoso'
 
 export function MainPanel() {
   const projects = useAppStore((state) => state.projects)
@@ -76,9 +77,9 @@ export function MainPanel() {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b p-4">
+    <div className="relative flex h-full flex-col bg-background">
+      {/* Header - Sticky Top */}
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background p-4">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-semibold">{selectedProject.name}</h2>
           <Button
@@ -92,8 +93,8 @@ export function MainPanel() {
         </div>
       </div>
 
-      {/* Content Area */}
-      <Tabs defaultValue="transcript" className="flex flex-1 flex-col">
+      {/* Content Area - Scrollable */}
+      <Tabs defaultValue="transcript" className="flex min-h-0 flex-1 flex-col">
         <div className="border-b px-4">
           <TabsList>
             <TabsTrigger value="transcript">Transcript</TabsTrigger>
@@ -101,17 +102,19 @@ export function MainPanel() {
           </TabsList>
         </div>
 
-        <TabsContent value="transcript" className="mt-0 flex-1">
-          <ScrollArea className="h-full">
-            <div className="space-y-3 p-4">
-              {transcript.length === 0 ? (
-                <p className="py-8 text-center text-muted-foreground">
-                  No transcript available
-                </p>
-              ) : (
-                transcript.map((segment) => (
+        <TabsContent value="transcript" className="mt-0 min-h-0 flex-1">
+          {transcript.length === 0 ? (
+            <div className="flex h-full items-center justify-center">
+              <p className="py-8 text-center text-muted-foreground">
+                No transcript available
+              </p>
+            </div>
+          ) : (
+            <Virtuoso
+              data={transcript}
+              itemContent={(index, segment) => (
+                <div className="px-4 pb-3 first:pt-4">
                   <Card
-                    key={segment.id}
                     className="cursor-pointer transition-colors hover:bg-accent"
                     onClick={() => selectSegment(segment)}
                   >
@@ -125,13 +128,13 @@ export function MainPanel() {
                       <p className="text-sm">{segment.text}</p>
                     </CardContent>
                   </Card>
-                ))
+                </div>
               )}
-            </div>
-          </ScrollArea>
+            />
+          )}
         </TabsContent>
 
-        <TabsContent value="snippets" className="mt-0 flex-1">
+        <TabsContent value="snippets" className="mt-0 min-h-0 flex-1">
           <ScrollArea className="h-full">
             <div className="space-y-3 p-4">
               {snippets.length === 0 ? (
@@ -159,8 +162,8 @@ export function MainPanel() {
         </TabsContent>
       </Tabs>
 
-      {/* Playback Controls */}
-      <div className="flex flex-col items-center gap-2 border-t p-4">
+      {/* Playback Controls - Sticky Bottom */}
+      <div className="sticky bottom-0 z-10 flex flex-col items-center gap-2 border-t bg-background p-4">
         <div className="flex items-center gap-4">
           <span className="text-sm text-muted-foreground">
             {formatTime(currentTime)}

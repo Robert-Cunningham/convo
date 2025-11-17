@@ -3,7 +3,7 @@ import { useAppStore, selectProject, createProjectFromFile } from '@/store'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Plus, Settings } from 'lucide-react'
+import { Plus, Settings, MessageSquareText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NewProjectDialog } from './NewProjectDialog'
 import { SettingsDialog } from './SettingsDialog'
@@ -35,6 +35,15 @@ export function Sidebar() {
       />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     <div className="flex h-full flex-col border-r bg-muted/40">
+      {/* Logo/Header */}
+      <div className="flex items-center gap-2 p-4">
+        <MessageSquareText className="h-5 w-5 text-primary" />
+        <h1 className="text-base font-semibold">convo cruncher</h1>
+        <span className="text-xs text-muted-foreground/60">v1</span>
+      </div>
+
+      <Separator />
+
       <div className="p-4">
         <Button onClick={handleNewProject} className="w-full">
           <Plus className="mr-2 h-4 w-4" />
