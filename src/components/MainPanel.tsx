@@ -226,7 +226,10 @@ export function MainPanel() {
                       {/* Left margin - timestamp and speaker */}
                       <div className="flex-shrink-0 text-right">
                         <div className="sticky top-4 flex items-center gap-2">
-                          <div className="text-xs text-muted-foreground">
+                          <div
+                            className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                            onClick={() => seek(segment.startTime)}
+                          >
                             {formatTime(segment.startTime)}
                           </div>
                           <Badge variant="secondary">
