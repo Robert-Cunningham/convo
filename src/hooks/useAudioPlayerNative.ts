@@ -12,6 +12,7 @@ interface AudioPlayerState {
   duration: number
   isLoaded: boolean
   error: string | null
+  playbackRate: number
 }
 
 export function useAudioPlayerNative({
@@ -28,6 +29,7 @@ export function useAudioPlayerNative({
     duration: 0,
     isLoaded: false,
     error: null,
+    playbackRate: 1,
   })
 
   // Keep ref in sync
@@ -70,12 +72,13 @@ export function useAudioPlayerNative({
         // Set up event listeners
         audio.addEventListener('loadedmetadata', () => {
           if (cancelled) return
-          setState({
+          setState((prev) => ({
+            ...prev,
             currentTime: 0,
             duration: audio.duration,
             isLoaded: true,
             error: null,
-          })
+          }))
         })
 
         audio.addEventListener('timeupdate', () => {
@@ -148,6 +151,15 @@ export function useAudioPlayerNative({
     [state.duration]
   )
 
+  // Set playback rate
+  const setPlaybackRate = useCallback((rate: number) => {
+    const audio = audioRef.current
+    if (audio) {
+      audio.playbackRate = rate
+    }
+    setState((prev) => ({ ...prev, playbackRate: rate }))
+  }, [])
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -164,5 +176,6 @@ export function useAudioPlayerNative({
   return {
     ...state,
     seek,
+    setPlaybackRate,
   }
 }

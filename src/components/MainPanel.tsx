@@ -8,7 +8,7 @@ import { useAudioPlayerNative as useAudioPlayer } from '@/hooks/useAudioPlayerNa
 import { selectSnippet, selectTemporarySnippet, setIsPlaying, useAppStore, useSnippets, useTranscript } from '@/store'
 import type { TranscriptWord } from '@/types'
 import { AlertCircle, FileAudio, Settings, Upload } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { formatTime, PlaybackControls } from './PlaybackControls'
 import { SpeakersPanel } from './SpeakersPanel'
 
@@ -36,8 +36,12 @@ export function MainPanel() {
   const [isSelecting, setIsSelecting] = useState(false)
   const [hoverPosition, setHoverPosition] = useState<WordPosition | null>(null)
 
+  // Refs for auto-scroll on play
+  const wordRefs = useRef<Map<string, HTMLSpanElement>>(new Map())
+  const prevIsPlayingRef = useRef(false)
+
   // Audio player hook
-  const { currentTime, duration, isLoaded, seek } = useAudioPlayer({
+  const { currentTime, duration, isLoaded, playbackRate, seek, setPlaybackRate } = useAudioPlayer({
     audioFileId: selectedProject?.audioFileId ?? null,
     isPlaying,
     onPlaybackEnd: () => setIsPlaying(false),
@@ -315,8 +319,10 @@ export function MainPanel() {
         duration={duration}
         isLoaded={isLoaded}
         isPlaying={isPlaying}
+        playbackRate={playbackRate}
         onSeek={seek}
         onTogglePlayback={togglePlayback}
+        onPlaybackRateChange={setPlaybackRate}
       />
     </Tabs>
   )

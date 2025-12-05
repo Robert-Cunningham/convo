@@ -2,13 +2,17 @@ import { Button } from '@/components/ui/button'
 import { Pause, Play } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+const PLAYBACK_RATES = [1, 1.5, 2, 2.5, 3] as const
+
 interface PlaybackControlsProps {
   currentTime: number
   duration: number
   isLoaded: boolean
   isPlaying: boolean
+  playbackRate: number
   onSeek: (time: number) => void
   onTogglePlayback: () => void
+  onPlaybackRateChange: (rate: number) => void
 }
 
 export function PlaybackControls({
@@ -16,11 +20,19 @@ export function PlaybackControls({
   duration,
   isLoaded,
   isPlaying,
+  playbackRate,
   onSeek,
   onTogglePlayback,
+  onPlaybackRateChange,
 }: PlaybackControlsProps) {
   const [isDragging, setIsDragging] = useState(false)
   const progressBarRef = useRef<HTMLDivElement>(null)
+
+  const cyclePlaybackRate = useCallback(() => {
+    const currentIndex = PLAYBACK_RATES.indexOf(playbackRate as typeof PLAYBACK_RATES[number])
+    const nextIndex = (currentIndex + 1) % PLAYBACK_RATES.length
+    onPlaybackRateChange(PLAYBACK_RATES[nextIndex])
+  }, [playbackRate, onPlaybackRateChange])
 
   const handleSeek = useCallback(
     (clientX: number) => {
@@ -99,6 +111,15 @@ export function PlaybackControls({
           {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
         </Button>
         <span className="text-sm text-muted-foreground">{formatTime(duration)}</span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={cyclePlaybackRate}
+          disabled={!isLoaded}
+          className="min-w-[3.5rem] font-mono"
+        >
+          {playbackRate}x
+        </Button>
       </div>
     </div>
   )
