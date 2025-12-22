@@ -73,7 +73,7 @@ function transformScribeResponse(response: ScribeResponse): TranscriptSegment[] 
       }
     } else {
       currentWords.push(transcriptWord)
-      currentSegment.text += ' ' + word.text
+      currentSegment.text += word.text
       currentSegment.endTime = word.end
     }
   }
