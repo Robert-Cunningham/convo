@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   useAppStore,
   selectProject,
-  createProjectFromFile,
+  createProjectsFromFiles,
   deleteProject,
   toggleMultiSelectMode,
   toggleProjectSelection,
@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, Settings, MessageSquareText, MoreHorizontal, Trash2, Download } from 'lucide-react'
+import { Plus, Settings, MessageSquareText, MoreHorizontal, Trash2, Download, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NewProjectDialog } from './NewProjectDialog'
 import { SettingsDialog } from './SettingsDialog'
@@ -43,8 +43,8 @@ export function Sidebar() {
     setSettingsOpen(true)
   }
 
-  const handleFileSelected = (file: File) => {
-    createProjectFromFile(file)
+  const handleFilesSelected = (files: File[]) => {
+    createProjectsFromFiles(files)
   }
 
   const handleExportSelected = async () => {
@@ -78,7 +78,7 @@ export function Sidebar() {
       <NewProjectDialog
         open={newProjectOpen}
         onOpenChange={setNewProjectOpen}
-        onFileSelected={handleFileSelected}
+        onFilesSelected={handleFilesSelected}
       />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     <div className="flex h-full flex-col border-r bg-muted/40">
@@ -122,12 +122,12 @@ export function Sidebar() {
           ) : (
             <div className="space-y-1">
               {projects.map((project) => (
-                <div key={project.id} className="group flex items-center gap-1">
+                <div key={project.id} className="group flex items-center gap-1 overflow-hidden">
                   {isMultiSelectMode && (
                     <Checkbox
                       checked={selectedProjectIds.includes(project.id)}
                       onCheckedChange={() => toggleProjectSelection(project.id)}
-                      className="mr-1"
+                      className="mr-1 flex-shrink-0"
                     />
                   )}
                   <Button
@@ -141,12 +141,15 @@ export function Sidebar() {
                           : 'ghost'
                     }
                     className={cn(
-                      'flex-1 justify-start truncate',
+                      'min-w-0 shrink flex-1 justify-start truncate',
                       !isMultiSelectMode && selectedProjectId === project.id && 'bg-accent'
                     )}
                     onClick={() => handleProjectClick(project.id)}
                   >
-                    {project.name}
+                    {project.status === 'loading' && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin flex-shrink-0" />
+                    )}
+                    <span className="truncate">{project.name}</span>
                   </Button>
                   {!isMultiSelectMode && (
                     <DropdownMenu>
@@ -154,7 +157,7 @@ export function Sidebar() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 opacity-0 group-hover:opacity-100"
+                          className="h-8 w-8 flex-shrink-0 opacity-0 group-hover:opacity-100"
                         >
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>

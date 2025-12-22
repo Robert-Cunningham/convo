@@ -170,7 +170,7 @@ export function MainPanel() {
     console.log('Open project settings')
   }
 
-  // Show upload status when processing
+  // Show upload status when processing (for single file uploads via old flow)
   if (uploadStatus === 'uploading' || uploadStatus === 'transcribing') {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-6 bg-background">
@@ -194,7 +194,7 @@ export function MainPanel() {
     )
   }
 
-  // Show error status
+  // Show error status (for global errors like missing API key)
   if (uploadStatus === 'error' && uploadError) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 bg-background">
@@ -209,6 +209,35 @@ export function MainPanel() {
     return (
       <div className="flex h-full items-center justify-center bg-background">
         <p className="text-muted-foreground">Select a project or create a new one</p>
+      </div>
+    )
+  }
+
+  // Show per-project loading state
+  if (selectedProject.status === 'loading') {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-6 bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <FileAudio className="h-12 w-12 animate-pulse text-primary" />
+          <h2 className="text-xl font-semibold">Transcribing...</h2>
+          <p className="text-sm text-muted-foreground">
+            Processing {selectedProject.name}...
+          </p>
+        </div>
+        <Progress value={70} className="w-64" />
+      </div>
+    )
+  }
+
+  // Show per-project error state
+  if (selectedProject.status === 'error') {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 bg-background">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <h2 className="text-xl font-semibold">Error</h2>
+        <p className="max-w-md text-center text-sm text-muted-foreground">
+          {selectedProject.error || 'An unknown error occurred'}
+        </p>
       </div>
     )
   }

@@ -7,6 +7,8 @@ export interface Project {
   snippets: Snippet[]
   speakerMap: Record<string, string> // Maps speaker IDs to custom names
   createdAt: number
+  status?: 'loading' | 'ready' | 'error' // Optional for backwards compat with existing projects
+  error?: string // Error message if status is 'error'
 }
 
 export type UploadStatus = 'idle' | 'uploading' | 'transcribing' | 'complete' | 'error'

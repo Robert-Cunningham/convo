@@ -10,13 +10,13 @@ import { Upload } from 'lucide-react'
 interface NewProjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onFileSelected: (file: File) => void
+  onFilesSelected: (files: File[]) => void
 }
 
 export function NewProjectDialog({
   open,
   onOpenChange,
-  onFileSelected,
+  onFilesSelected,
 }: NewProjectDialogProps) {
   const [isDragging, setIsDragging] = useState(false)
 
@@ -37,25 +37,27 @@ export function NewProjectDialog({
 
       const files = e.dataTransfer.files
       if (files.length > 0) {
-        const file = files[0]
-        if (file.type.startsWith('audio/') || file.type.startsWith('video/')) {
-          onFileSelected(file)
-          onOpenChange(false) // Close dialog immediately
+        const validFiles = Array.from(files).filter(
+          (file) => file.type.startsWith('audio/') || file.type.startsWith('video/')
+        )
+        if (validFiles.length > 0) {
+          onFilesSelected(validFiles)
+          onOpenChange(false)
         }
       }
     },
-    [onFileSelected, onOpenChange]
+    [onFilesSelected, onOpenChange]
   )
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files
       if (files && files.length > 0) {
-        onFileSelected(files[0])
-        onOpenChange(false) // Close dialog immediately
+        onFilesSelected(Array.from(files))
+        onOpenChange(false)
       }
     },
-    [onFileSelected, onOpenChange]
+    [onFilesSelected, onOpenChange]
   )
 
   return (
@@ -78,15 +80,16 @@ export function NewProjectDialog({
           <Upload className="h-12 w-12 text-muted-foreground" />
           <div className="text-center">
             <p className="text-sm font-medium">
-              Drop your audio or video file here
+              Drop your audio or video files here
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              or click to browse
+              or click to browse (select multiple)
             </p>
           </div>
           <input
             type="file"
             accept="audio/*,video/*"
+            multiple
             onChange={handleFileInput}
             className="absolute inset-0 opacity-0 cursor-pointer"
           />

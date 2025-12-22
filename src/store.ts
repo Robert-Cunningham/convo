@@ -285,3 +285,93 @@ export const getSelectedProjects = (): Project[] => {
   const state = useAppStore.getState()
   return state.projects.filter((p) => state.selectedProjectIds.includes(p.id))
 }
+
+// Check if a file with the same audioFileName already exists
+export const isDuplicateFile = (fileName: string): boolean => {
+  const projects = useAppStore.getState().projects
+  return projects.some((p) => p.audioFileName === fileName)
+}
+
+// Update a project's status and optionally other fields
+export const updateProject = (
+  projectId: string,
+  updates: Partial<Pick<Project, 'status' | 'error' | 'audioFileId' | 'transcript'>>
+) =>
+  useAppStore.getState().mutate((s) => {
+    const project = s.projects.find((p) => p.id === projectId)
+    if (project) {
+      Object.assign(project, updates)
+    }
+  })
+
+// Process multiple files in parallel, creating projects immediately with loading state
+export const createProjectsFromFiles = async (files: File[]) => {
+  const store = useAppStore.getState()
+
+  // Check for API key first
+  const apiKey = loadApiKey()
+  if (!apiKey) {
+    setUploadStatus('error', 'Please set your ElevenLabs API key in Settings')
+    return
+  }
+
+  // Filter out duplicates
+  const validFiles = files.filter((file) => !isDuplicateFile(file.name))
+  if (validFiles.length === 0) {
+    return // All files were duplicates
+  }
+
+  // Create placeholder projects immediately with loading status
+  const projectsToProcess: Array<{ project: Project; file: File }> = []
+
+  store.mutate((s) => {
+    for (const file of validFiles) {
+      const project: Project = {
+        id: crypto.randomUUID(),
+        name: file.name.replace(/\.[^/.]+$/, ''),
+        audioFileName: file.name,
+        audioFileId: '',
+        transcript: [],
+        snippets: [],
+        speakerMap: {},
+        createdAt: Date.now(),
+        status: 'loading',
+      }
+      s.projects.push(project)
+      projectsToProcess.push({ project, file })
+    }
+    // Select the first new project
+    if (projectsToProcess.length > 0) {
+      s.selectedProjectId = projectsToProcess[0].project.id
+      s.selectedItem = null
+      s.isPlaying = false
+    }
+  })
+
+  // Process all files in parallel
+  await Promise.allSettled(
+    projectsToProcess.map(async ({ project, file }) => {
+      try {
+        // Generate audio file ID and save to IndexedDB
+        const audioFileId = crypto.randomUUID()
+        await saveAudioFile(audioFileId, file)
+
+        // Transcribe the audio
+        const transcript = await transcribeAudio(file, apiKey)
+
+        // Update project with results
+        updateProject(project.id, {
+          audioFileId,
+          transcript,
+          status: 'ready',
+        })
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+        updateProject(project.id, {
+          status: 'error',
+          error: errorMessage,
+        })
+      }
+    })
+  )
+}
