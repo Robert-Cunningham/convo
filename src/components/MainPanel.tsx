@@ -6,8 +6,9 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAudioPlayerNative as useAudioPlayer } from '@/hooks/useAudioPlayerNative'
 import { selectSnippet, selectTemporarySnippet, setIsPlaying, useAppStore, useSnippets, useTranscript } from '@/store'
+import { retryProject } from '@/project'
 import type { TranscriptWord } from '@/types'
-import { AlertCircle, FileAudio, Settings, Upload } from 'lucide-react'
+import { AlertCircle, FileAudio, RefreshCw, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { formatTime, PlaybackControls } from './PlaybackControls'
 import { SpeakersPanel } from './SpeakersPanel'
@@ -25,8 +26,6 @@ export function MainPanel() {
   const snippets = useSnippets()
   const isPlaying = useAppStore((state) => state.isPlaying)
   const togglePlayback = useAppStore((state) => state.togglePlayback)
-  const uploadStatus = useAppStore((state) => state.uploadStatus)
-  const uploadError = useAppStore((state) => state.uploadError)
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
 
@@ -170,41 +169,6 @@ export function MainPanel() {
     console.log('Open project settings')
   }
 
-  // Show upload status when processing (for single file uploads via old flow)
-  if (uploadStatus === 'uploading' || uploadStatus === 'transcribing') {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-6 bg-background">
-        <div className="flex flex-col items-center gap-4">
-          {uploadStatus === 'uploading' ? (
-            <Upload className="h-12 w-12 animate-pulse text-primary" />
-          ) : (
-            <FileAudio className="h-12 w-12 animate-pulse text-primary" />
-          )}
-          <h2 className="text-xl font-semibold">
-            {uploadStatus === 'uploading' ? 'Uploading...' : 'Transcribing...'}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {uploadStatus === 'uploading'
-              ? 'Saving your file...'
-              : 'Processing audio with ElevenLabs Scribe...'}
-          </p>
-        </div>
-        <Progress value={uploadStatus === 'uploading' ? 30 : 70} className="w-64" />
-      </div>
-    )
-  }
-
-  // Show error status (for global errors like missing API key)
-  if (uploadStatus === 'error' && uploadError) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 bg-background">
-        <AlertCircle className="h-12 w-12 text-destructive" />
-        <h2 className="text-xl font-semibold">Error</h2>
-        <p className="max-w-md text-center text-sm text-muted-foreground">{uploadError}</p>
-      </div>
-    )
-  }
-
   if (!selectedProject) {
     return (
       <div className="flex h-full items-center justify-center bg-background">
@@ -215,6 +179,25 @@ export function MainPanel() {
 
   // Show per-project loading state
   if (selectedProject.status === 'loading') {
+    // Check if this is an interrupted transcription (has audioFileId but no transcript)
+    const isInterrupted = selectedProject.audioFileId && selectedProject.transcript.length === 0
+
+    if (isInterrupted) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-4 bg-background">
+          <AlertCircle className="h-12 w-12 text-yellow-500" />
+          <h2 className="text-xl font-semibold">Transcription Interrupted</h2>
+          <p className="max-w-md text-center text-sm text-muted-foreground">
+            The transcription for "{selectedProject.name}" was interrupted. Click retry to continue.
+          </p>
+          <Button onClick={() => retryProject(selectedProject.id)}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retry
+          </Button>
+        </div>
+      )
+    }
+
     return (
       <div className="flex h-full flex-col items-center justify-center gap-6 bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -238,6 +221,10 @@ export function MainPanel() {
         <p className="max-w-md text-center text-sm text-muted-foreground">
           {selectedProject.error || 'An unknown error occurred'}
         </p>
+        <Button onClick={() => retryProject(selectedProject.id)}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Retry
+        </Button>
       </div>
     )
   }

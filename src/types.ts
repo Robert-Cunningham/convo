@@ -11,8 +11,6 @@ export interface Project {
   error?: string // Error message if status is 'error'
 }
 
-export type UploadStatus = 'idle' | 'uploading' | 'transcribing' | 'complete' | 'error'
-
 export interface TranscriptWord {
   text: string
   start: number

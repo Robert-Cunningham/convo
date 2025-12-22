@@ -2,13 +2,12 @@ import { useState } from 'react'
 import {
   useAppStore,
   selectProject,
-  createProjectsFromFiles,
-  deleteProject,
   toggleMultiSelectMode,
   toggleProjectSelection,
   exitMultiSelectMode,
   getSelectedProjects,
 } from '@/store'
+import { createProjectsFromFiles, deleteProject } from '@/project'
 import { exportProjectsAsZip, exportProjectToMarkdown, downloadMarkdown } from '@/lib/export'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -20,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, Settings, MessageSquareText, MoreHorizontal, Trash2, Download, Loader2 } from 'lucide-react'
+import { Plus, Settings, MessageSquareText, MoreHorizontal, Trash2, Download, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NewProjectDialog } from './NewProjectDialog'
 import { SettingsDialog } from './SettingsDialog'
@@ -148,6 +147,9 @@ export function Sidebar() {
                   >
                     {project.status === 'loading' && (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin flex-shrink-0" />
+                    )}
+                    {project.status === 'error' && (
+                      <AlertCircle className="mr-2 h-4 w-4 text-destructive flex-shrink-0" />
                     )}
                     <span className="truncate">{project.name}</span>
                   </Button>
