@@ -24,6 +24,10 @@ interface AppState {
   transcriptCache: Map<string, TranscriptSegment[]>
   loadingTranscripts: Set<string>
 
+  // Active transcription tracking (non-persisted)
+  // Used to distinguish "currently transcribing" from "was interrupted"
+  activeTranscriptions: Set<string>
+
   // Single immer-based mutator
   mutate: (fn: (state: AppState) => void) => void
 
@@ -50,6 +54,9 @@ export const useAppStore = create<AppState>()(
       // Transcript cache (non-persisted)
       transcriptCache: new Map(),
       loadingTranscripts: new Set(),
+
+      // Active transcription tracking (non-persisted)
+      activeTranscriptions: new Set(),
 
       // All state mutations should use this mutate() function for consistency.
       // It uses Immer's produce() to allow direct mutations of the draft state.
@@ -268,3 +275,17 @@ export const getSelectedProjects = (): Project[] => {
   const state = useAppStore.getState()
   return state.projects.filter((p) => state.selectedProjectIds.includes(p.id))
 }
+
+// Active transcription tracking helpers
+export const startTranscription = (projectId: string) =>
+  useAppStore.getState().mutate((s) => {
+    s.activeTranscriptions.add(projectId)
+  })
+
+export const endTranscription = (projectId: string) =>
+  useAppStore.getState().mutate((s) => {
+    s.activeTranscriptions.delete(projectId)
+  })
+
+export const isTranscribing = (projectId: string): boolean =>
+  useAppStore.getState().activeTranscriptions.has(projectId)

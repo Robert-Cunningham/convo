@@ -1,5 +1,5 @@
 import type { Project } from './types'
-import { useAppStore, cacheTranscript, clearTranscriptCache } from './store'
+import { useAppStore, cacheTranscript, clearTranscriptCache, startTranscription, endTranscription } from './store'
 import { saveAudioFile, loadApiKey, deleteAudioFile, getAudioFile, saveTranscript, deleteTranscript } from './lib/storage'
 import { transcribeAudio } from './lib/elevenlabs'
 
@@ -115,6 +115,9 @@ export const createProjectsFromFiles = async (files: File[]) => {
       await saveAudioFile(audioFileId, file)
       updateProject(project.id, { audioFileId })
 
+      // Mark as actively transcribing (distinguishes from interrupted state)
+      startTranscription(project.id)
+
       try {
         // Transcribe the audio
         const transcript = await transcribeAudio(file, apiKey)
@@ -137,6 +140,8 @@ export const createProjectsFromFiles = async (files: File[]) => {
           status: 'error',
           error: errorMessage,
         })
+      } finally {
+        endTranscription(project.id)
       }
     })
   )
@@ -154,8 +159,9 @@ export const retryProject = async (projectId: string) => {
     return
   }
 
-  // Set to loading
+  // Set to loading and mark as actively transcribing
   updateProject(projectId, { status: 'loading', error: undefined })
+  startTranscription(projectId)
 
   try {
     // Get audio file from IndexedDB
@@ -179,5 +185,7 @@ export const retryProject = async (projectId: string) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     updateProject(projectId, { status: 'error', error: errorMessage })
+  } finally {
+    endTranscription(projectId)
   }
 }

@@ -5,7 +5,7 @@ import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAudioPlayerNative as useAudioPlayer } from '@/hooks/useAudioPlayerNative'
-import { selectSnippet, selectTemporarySnippet, setIsPlaying, useAppStore, useSnippets, useTranscript, useTranscriptLoading } from '@/store'
+import { isTranscribing, selectSnippet, selectTemporarySnippet, setIsPlaying, useAppStore, useSnippets, useTranscript, useTranscriptLoading } from '@/store'
 import { retryProject } from '@/project'
 import type { TranscriptWord } from '@/types'
 import { AlertCircle, FileAudio, RefreshCw, Settings } from 'lucide-react'
@@ -180,8 +180,8 @@ export function MainPanel() {
 
   // Show per-project loading state
   if (selectedProject.status === 'loading') {
-    // Check if this is an interrupted transcription (has audioFileId but no transcriptId)
-    const isInterrupted = selectedProject.audioFileId && !selectedProject.transcriptId
+    // Check if this is an interrupted transcription (not actively transcribing)
+    const isInterrupted = !isTranscribing(selectedProject.id)
 
     if (isInterrupted) {
       return (
