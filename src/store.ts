@@ -1,9 +1,11 @@
+import { enableMapSet, produce } from 'immer'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
-import { produce } from 'immer'
-import type { Project, TranscriptSegment, Snippet, SelectedItem } from './types'
 import { getTranscript } from './lib/storage'
+import type { Project, SelectedItem, Snippet, TranscriptSegment } from './types'
+
+enableMapSet()
 
 interface AppState {
   // Persisted state
@@ -49,12 +51,13 @@ export const useAppStore = create<AppState>()(
       transcriptCache: new Map(),
       loadingTranscripts: new Set(),
 
-      // Single mutator using immer's produce
+      // All state mutations should use this mutate() function for consistency.
+      // It uses Immer's produce() to allow direct mutations of the draft state.
       mutate: (fn) => set(produce(fn)),
 
       // Simple top-level actions
-      clearSelection: () => set({ selectedItem: null }),
-      togglePlayback: () => set((s) => ({ isPlaying: !s.isPlaying })),
+      clearSelection: () => set(produce((s) => { s.selectedItem = null })),
+      togglePlayback: () => set(produce((s) => { s.isPlaying = !s.isPlaying })),
     }),
     {
       name: 'convo-standalone-storage',
@@ -160,48 +163,38 @@ export const loadTranscriptForProject = async (projectId: string) => {
   if (state.loadingTranscripts.has(projectId)) return
 
   // Mark as loading
-  useAppStore.setState((s) => ({
-    loadingTranscripts: new Set(s.loadingTranscripts).add(projectId),
-  }))
+  useAppStore.getState().mutate((s) => {
+    s.loadingTranscripts.add(projectId)
+  })
 
   try {
     const segments = await getTranscript(project.transcriptId)
-    useAppStore.setState((s) => {
-      const newCache = new Map(s.transcriptCache)
-      const newLoading = new Set(s.loadingTranscripts)
+    useAppStore.getState().mutate((s) => {
       if (segments) {
-        newCache.set(projectId, segments)
+        s.transcriptCache.set(projectId, segments)
       }
-      newLoading.delete(projectId)
-      return { transcriptCache: newCache, loadingTranscripts: newLoading }
+      s.loadingTranscripts.delete(projectId)
     })
   } catch (error) {
     console.error('Failed to load transcript:', error)
-    useAppStore.setState((s) => {
-      const newLoading = new Set(s.loadingTranscripts)
-      newLoading.delete(projectId)
-      return { loadingTranscripts: newLoading }
+    useAppStore.getState().mutate((s) => {
+      s.loadingTranscripts.delete(projectId)
     })
   }
 }
 
 // Cache a transcript (used after transcription completes)
 export const cacheTranscript = (projectId: string, segments: TranscriptSegment[]) => {
-  useAppStore.setState((s) => {
-    const newCache = new Map(s.transcriptCache)
-    newCache.set(projectId, segments)
-    return { transcriptCache: newCache }
+  useAppStore.getState().mutate((s) => {
+    s.transcriptCache.set(projectId, segments)
   })
 }
 
 // Clear transcript cache for a project (used on delete)
 export const clearTranscriptCache = (projectId: string) => {
-  useAppStore.setState((s) => {
-    const newCache = new Map(s.transcriptCache)
-    const newLoading = new Set(s.loadingTranscripts)
-    newCache.delete(projectId)
-    newLoading.delete(projectId)
-    return { transcriptCache: newCache, loadingTranscripts: newLoading }
+  useAppStore.getState().mutate((s) => {
+    s.transcriptCache.delete(projectId)
+    s.loadingTranscripts.delete(projectId)
   })
 }
 
