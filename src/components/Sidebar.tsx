@@ -53,7 +53,7 @@ export function Sidebar() {
     if (selectedProjects.length === 1) {
       // Single project: download as .md file
       const project = selectedProjects[0]
-      const markdown = exportProjectToMarkdown(project)
+      const markdown = await exportProjectToMarkdown(project)
       downloadMarkdown(markdown, project.name)
     } else {
       // Multiple projects: download as ZIP

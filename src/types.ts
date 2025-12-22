@@ -3,7 +3,8 @@ export interface Project {
   name: string
   audioFileName: string
   audioFileId: string // IndexedDB key
-  transcript: TranscriptSegment[]
+  transcriptId?: string // IndexedDB key for transcript data
+  transcript?: TranscriptSegment[] // Deprecated: kept for migration compatibility
   snippets: Snippet[]
   speakerMap: Record<string, string> // Maps speaker IDs to custom names
   createdAt: number

@@ -1,4 +1,5 @@
 import { openDB, type DBSchema } from 'idb'
+import type { TranscriptSegment } from '../types'
 
 interface ConvoStandaloneDB extends DBSchema {
   audioFiles: {
@@ -9,16 +10,30 @@ interface ConvoStandaloneDB extends DBSchema {
       createdAt: number
     }
   }
+  transcripts: {
+    key: string
+    value: {
+      id: string
+      projectId: string
+      segments: TranscriptSegment[]
+      createdAt: number
+    }
+    indexes: { 'by-project': string }
+  }
 }
 
 const DB_NAME = 'convo-standalone'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 async function getDB() {
   return openDB<ConvoStandaloneDB>(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('audioFiles')) {
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
         db.createObjectStore('audioFiles', { keyPath: 'id' })
+      }
+      if (oldVersion < 2) {
+        const transcriptStore = db.createObjectStore('transcripts', { keyPath: 'id' })
+        transcriptStore.createIndex('by-project', 'projectId')
       }
     },
   })
@@ -53,4 +68,30 @@ export function saveApiKey(apiKey: string): void {
 
 export function loadApiKey(): string | null {
   return localStorage.getItem(API_KEY_KEY)
+}
+
+// Transcript storage functions
+export async function saveTranscript(
+  id: string,
+  projectId: string,
+  segments: TranscriptSegment[]
+): Promise<void> {
+  const db = await getDB()
+  await db.put('transcripts', {
+    id,
+    projectId,
+    segments,
+    createdAt: Date.now(),
+  })
+}
+
+export async function getTranscript(id: string): Promise<TranscriptSegment[] | null> {
+  const db = await getDB()
+  const record = await db.get('transcripts', id)
+  return record?.segments ?? null
+}
+
+export async function deleteTranscript(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('transcripts', id)
 }

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { InspectorPanel } from '@/components/InspectorPanel'
 import { MainPanel } from '@/components/MainPanel'
 import { Sidebar } from '@/components/Sidebar'
@@ -6,8 +7,14 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/components/ui/resizable'
+import { migrateTranscriptsToIndexedDB } from '@/lib/migration'
 
 function App() {
+  // Migrate existing transcripts from localStorage to IndexedDB on first load
+  useEffect(() => {
+    migrateTranscriptsToIndexedDB().catch(console.error)
+  }, [])
+
   return (
     <div className="h-screen bg-background">
       <ResizablePanelGroup direction="horizontal">

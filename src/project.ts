@@ -1,6 +1,6 @@
 import type { Project } from './types'
-import { useAppStore } from './store'
-import { saveAudioFile, loadApiKey, deleteAudioFile, getAudioFile } from './lib/storage'
+import { useAppStore, cacheTranscript, clearTranscriptCache } from './store'
+import { saveAudioFile, loadApiKey, deleteAudioFile, getAudioFile, saveTranscript, deleteTranscript } from './lib/storage'
 import { transcribeAudio } from './lib/elevenlabs'
 
 // Check if a file with the same audioFileName already exists
@@ -12,7 +12,7 @@ export const isDuplicateFile = (fileName: string): boolean => {
 // Update a project's status and optionally other fields
 export const updateProject = (
   projectId: string,
-  updates: Partial<Pick<Project, 'status' | 'error' | 'audioFileId' | 'transcript'>>
+  updates: Partial<Pick<Project, 'status' | 'error' | 'audioFileId' | 'transcriptId'>>
 ) =>
   useAppStore.getState().mutate((s) => {
     const project = s.projects.find((p) => p.id === projectId)
@@ -28,11 +28,25 @@ export const deleteProject = async (projectId: string) => {
   if (!project) return
 
   // Delete audio file from IndexedDB
-  try {
-    await deleteAudioFile(project.audioFileId)
-  } catch (error) {
-    console.error('Failed to delete audio file:', error)
+  if (project.audioFileId) {
+    try {
+      await deleteAudioFile(project.audioFileId)
+    } catch (error) {
+      console.error('Failed to delete audio file:', error)
+    }
   }
+
+  // Delete transcript from IndexedDB
+  if (project.transcriptId) {
+    try {
+      await deleteTranscript(project.transcriptId)
+    } catch (error) {
+      console.error('Failed to delete transcript:', error)
+    }
+  }
+
+  // Clear transcript cache
+  clearTranscriptCache(projectId)
 
   // Remove project from store
   store.mutate((s) => {
@@ -68,7 +82,6 @@ export const createProjectsFromFiles = async (files: File[]) => {
         name: file.name.replace(/\.[^/.]+$/, ''),
         audioFileName: file.name,
         audioFileId: '',
-        transcript: [],
         snippets: [],
         speakerMap: {},
         createdAt: Date.now(),
@@ -106,11 +119,18 @@ export const createProjectsFromFiles = async (files: File[]) => {
         // Transcribe the audio
         const transcript = await transcribeAudio(file, apiKey)
 
-        // Update project with results
+        // Save transcript to IndexedDB
+        const transcriptId = crypto.randomUUID()
+        await saveTranscript(transcriptId, project.id, transcript)
+
+        // Update project with reference (not inline data)
         updateProject(project.id, {
-          transcript,
+          transcriptId,
           status: 'ready',
         })
+
+        // Cache transcript for immediate use
+        cacheTranscript(project.id, transcript)
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
         updateProject(project.id, {
@@ -147,8 +167,15 @@ export const retryProject = async (projectId: string) => {
     // Transcribe
     const transcript = await transcribeAudio(audioFile, apiKey)
 
-    // Update with results
-    updateProject(projectId, { transcript, status: 'ready' })
+    // Save transcript to IndexedDB
+    const transcriptId = crypto.randomUUID()
+    await saveTranscript(transcriptId, projectId, transcript)
+
+    // Update project with reference
+    updateProject(projectId, { transcriptId, status: 'ready' })
+
+    // Cache transcript for immediate use
+    cacheTranscript(projectId, transcript)
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     updateProject(projectId, { status: 'error', error: errorMessage })

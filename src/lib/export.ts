@@ -1,4 +1,20 @@
-import type { Project } from '../types'
+import type { Project, TranscriptSegment } from '../types'
+import { getTranscript } from './storage'
+
+/**
+ * Gets the transcript for a project, loading from IndexedDB if needed
+ */
+async function getProjectTranscript(project: Project): Promise<TranscriptSegment[]> {
+  // Try IndexedDB first (new format)
+  if (project.transcriptId) {
+    const segments = await getTranscript(project.transcriptId)
+    if (segments) {
+      return segments
+    }
+  }
+  // Fall back to inline transcript (legacy format)
+  return project.transcript ?? []
+}
 
 /**
  * Formats seconds into [M:SS] timestamp format
@@ -49,7 +65,7 @@ function formatDate(timestamp: number): string {
  * Exports a single project's transcript to markdown format
  * Format: [M:SS] SpeakerName: text
  */
-export function exportProjectToMarkdown(project: Project): string {
+export async function exportProjectToMarkdown(project: Project): Promise<string> {
   const header = [
     `# ${project.name}`,
     '',
@@ -60,7 +76,8 @@ export function exportProjectToMarkdown(project: Project): string {
     '',
   ].join('\n')
 
-  const transcript = project.transcript
+  const segments = await getProjectTranscript(project)
+  const transcript = segments
     .map((segment) => {
       const timestamp = formatTimestamp(segment.startTime)
       const speaker = getSpeakerDisplayName(segment.speaker, project.speakerMap ?? {})
@@ -124,7 +141,7 @@ export async function exportProjectsAsZip(projects: Project[]): Promise<void> {
   const usedFilenames = new Set<string>()
 
   for (const project of projects) {
-    const markdown = exportProjectToMarkdown(project)
+    const markdown = await exportProjectToMarkdown(project)
     const filename = getUniqueFilename(project.name, usedFilenames)
     zip.file(`${filename}.md`, markdown)
   }

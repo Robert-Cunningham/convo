@@ -5,7 +5,7 @@ import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAudioPlayerNative as useAudioPlayer } from '@/hooks/useAudioPlayerNative'
-import { selectSnippet, selectTemporarySnippet, setIsPlaying, useAppStore, useSnippets, useTranscript } from '@/store'
+import { selectSnippet, selectTemporarySnippet, setIsPlaying, useAppStore, useSnippets, useTranscript, useTranscriptLoading } from '@/store'
 import { retryProject } from '@/project'
 import type { TranscriptWord } from '@/types'
 import { AlertCircle, FileAudio, RefreshCw, Settings } from 'lucide-react'
@@ -28,6 +28,7 @@ export function MainPanel() {
   const togglePlayback = useAppStore((state) => state.togglePlayback)
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
+  const isTranscriptLoading = useTranscriptLoading()
 
   // Selection state for snippet creation
   const [selectionStart, setSelectionStart] = useState<WordPosition | null>(null)
@@ -179,8 +180,8 @@ export function MainPanel() {
 
   // Show per-project loading state
   if (selectedProject.status === 'loading') {
-    // Check if this is an interrupted transcription (has audioFileId but no transcript)
-    const isInterrupted = selectedProject.audioFileId && selectedProject.transcript.length === 0
+    // Check if this is an interrupted transcription (has audioFileId but no transcriptId)
+    const isInterrupted = selectedProject.audioFileId && !selectedProject.transcriptId
 
     if (isInterrupted) {
       return (
@@ -225,6 +226,16 @@ export function MainPanel() {
           <RefreshCw className="mr-2 h-4 w-4" />
           Retry
         </Button>
+      </div>
+    )
+  }
+
+  // Show loading state when transcript is being loaded from IndexedDB
+  if (isTranscriptLoading && transcript.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 bg-background">
+        <FileAudio className="h-12 w-12 animate-pulse text-primary" />
+        <p className="text-sm text-muted-foreground">Loading transcript...</p>
       </div>
     )
   }

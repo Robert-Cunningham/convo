@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 import { produce } from 'immer'
 import type { Project, TranscriptSegment, Snippet, SelectedItem } from './types'
+import { getTranscript } from './lib/storage'
 
 interface AppState {
   // Persisted state
@@ -16,6 +17,10 @@ interface AppState {
   // Multi-select state (non-persisted)
   isMultiSelectMode: boolean
   selectedProjectIds: string[]
+
+  // Transcript cache (non-persisted, loaded on-demand from IndexedDB)
+  transcriptCache: Map<string, TranscriptSegment[]>
+  loadingTranscripts: Set<string>
 
   // Single immer-based mutator
   mutate: (fn: (state: AppState) => void) => void
@@ -40,6 +45,10 @@ export const useAppStore = create<AppState>()(
       isMultiSelectMode: false,
       selectedProjectIds: [],
 
+      // Transcript cache (non-persisted)
+      transcriptCache: new Map(),
+      loadingTranscripts: new Set(),
+
       // Single mutator using immer's produce
       mutate: (fn) => set(produce(fn)),
 
@@ -50,7 +59,11 @@ export const useAppStore = create<AppState>()(
     {
       name: 'convo-standalone-storage',
       partialize: (state) => ({
-        projects: state.projects,
+        // Strip transcript arrays from projects to avoid localStorage quota issues
+        projects: state.projects.map((p) => {
+          const { transcript, ...rest } = p
+          return rest
+        }),
         selectedProjectId: state.selectedProjectId,
       }),
     }
@@ -137,14 +150,88 @@ export const updateSpeakerName = (projectId: string, speakerId: string, customNa
     }
   })
 
+// Load transcript from IndexedDB into cache
+export const loadTranscriptForProject = async (projectId: string) => {
+  const state = useAppStore.getState()
+  const project = state.projects.find((p) => p.id === projectId)
+
+  if (!project?.transcriptId) return
+  if (state.transcriptCache.has(projectId)) return
+  if (state.loadingTranscripts.has(projectId)) return
+
+  // Mark as loading
+  useAppStore.setState((s) => ({
+    loadingTranscripts: new Set(s.loadingTranscripts).add(projectId),
+  }))
+
+  try {
+    const segments = await getTranscript(project.transcriptId)
+    useAppStore.setState((s) => {
+      const newCache = new Map(s.transcriptCache)
+      const newLoading = new Set(s.loadingTranscripts)
+      if (segments) {
+        newCache.set(projectId, segments)
+      }
+      newLoading.delete(projectId)
+      return { transcriptCache: newCache, loadingTranscripts: newLoading }
+    })
+  } catch (error) {
+    console.error('Failed to load transcript:', error)
+    useAppStore.setState((s) => {
+      const newLoading = new Set(s.loadingTranscripts)
+      newLoading.delete(projectId)
+      return { loadingTranscripts: newLoading }
+    })
+  }
+}
+
+// Cache a transcript (used after transcription completes)
+export const cacheTranscript = (projectId: string, segments: TranscriptSegment[]) => {
+  useAppStore.setState((s) => {
+    const newCache = new Map(s.transcriptCache)
+    newCache.set(projectId, segments)
+    return { transcriptCache: newCache }
+  })
+}
+
+// Clear transcript cache for a project (used on delete)
+export const clearTranscriptCache = (projectId: string) => {
+  useAppStore.setState((s) => {
+    const newCache = new Map(s.transcriptCache)
+    const newLoading = new Set(s.loadingTranscripts)
+    newCache.delete(projectId)
+    newLoading.delete(projectId)
+    return { transcriptCache: newCache, loadingTranscripts: newLoading }
+  })
+}
+
 // Custom hooks for derived state
 export const useTranscript = () => {
-  return useAppStore(
-    useShallow((state) => {
-      if (!state.selectedProjectId) return []
-      const project = state.projects.find((p) => p.id === state.selectedProjectId)
-      return project?.transcript ?? []
-    })
+  const selectedProjectId = useAppStore((s) => s.selectedProjectId)
+  const project = useAppStore((s) =>
+    s.selectedProjectId ? s.projects.find((p) => p.id === s.selectedProjectId) : null
+  )
+  const cachedTranscript = useAppStore((s) =>
+    selectedProjectId ? s.transcriptCache.get(selectedProjectId) : undefined
+  )
+  const isLoading = useAppStore((s) =>
+    selectedProjectId ? s.loadingTranscripts.has(selectedProjectId) : false
+  )
+
+  // Trigger load from IndexedDB if needed
+  if (selectedProjectId && project?.transcriptId && !cachedTranscript && !isLoading) {
+    loadTranscriptForProject(selectedProjectId)
+  }
+
+  // Return cached transcript, legacy inline transcript, or empty array
+  return cachedTranscript ?? project?.transcript ?? []
+}
+
+// Hook to check if transcript is loading
+export const useTranscriptLoading = () => {
+  const selectedProjectId = useAppStore((s) => s.selectedProjectId)
+  return useAppStore((s) =>
+    selectedProjectId ? s.loadingTranscripts.has(selectedProjectId) : false
   )
 }
 
