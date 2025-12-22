@@ -66,6 +66,30 @@ export function MainPanel() {
     return words
   }, [transcript])
 
+  // Auto-scroll to current position when playback starts
+  useEffect(() => {
+    if (isPlaying && !prevIsPlayingRef.current && allWords.length > 0) {
+      // Find the word at or after the current time
+      const currentWordIndex = allWords.findIndex(
+        (wp) => wp.word.start <= currentTime && wp.word.end >= currentTime
+      )
+      // If no exact match, find the next word after current time
+      const targetIndex = currentWordIndex >= 0
+        ? currentWordIndex
+        : allWords.findIndex((wp) => wp.word.start >= currentTime)
+
+      if (targetIndex >= 0) {
+        const wp = allWords[targetIndex]
+        const key = `${wp.segmentIndex}-${wp.wordIndex}`
+        const element = wordRefs.current.get(key)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }
+    }
+    prevIsPlayingRef.current = isPlaying
+  }, [isPlaying, currentTime, allWords])
+
   // Get global index of a word position
   const getGlobalIndex = useCallback((pos: WordPosition) => {
     let index = 0
@@ -252,6 +276,14 @@ export function MainPanel() {
                           return (
                             <span key={`${segment.id}-${wordIndex}`}>
                               <span
+                                ref={(el) => {
+                                  const key = `${segmentIndex}-${wordIndex}`
+                                  if (el) {
+                                    wordRefs.current.set(key, el)
+                                  } else {
+                                    wordRefs.current.delete(key)
+                                  }
+                                }}
                                 onClick={() => handleWordClick(pos)}
                                 onMouseEnter={() => handleWordHover(pos)}
                                 className={`transition-colors ${
