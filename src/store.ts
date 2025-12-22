@@ -17,6 +17,10 @@ interface AppState {
   uploadStatus: UploadStatus
   uploadError: string | null
 
+  // Multi-select state (non-persisted)
+  isMultiSelectMode: boolean
+  selectedProjectIds: string[]
+
   // Single immer-based mutator
   mutate: (fn: (state: AppState) => void) => void
 
@@ -37,6 +41,10 @@ export const useAppStore = create<AppState>()(
       selectedItem: null,
       uploadStatus: 'idle',
       uploadError: null,
+
+      // Multi-select state (non-persisted)
+      isMultiSelectMode: false,
+      selectedProjectIds: [],
 
       // Single mutator using immer's produce
       mutate: (fn) => set(produce(fn)),
@@ -245,4 +253,35 @@ export const useSnippets = () => {
       return project?.snippets ?? []
     })
   )
+}
+
+// Multi-select action helpers
+export const toggleMultiSelectMode = () =>
+  useAppStore.getState().mutate((s) => {
+    s.isMultiSelectMode = !s.isMultiSelectMode
+    // Clear selections when exiting multi-select mode
+    if (!s.isMultiSelectMode) {
+      s.selectedProjectIds = []
+    }
+  })
+
+export const exitMultiSelectMode = () =>
+  useAppStore.getState().mutate((s) => {
+    s.isMultiSelectMode = false
+    s.selectedProjectIds = []
+  })
+
+export const toggleProjectSelection = (projectId: string) =>
+  useAppStore.getState().mutate((s) => {
+    const index = s.selectedProjectIds.indexOf(projectId)
+    if (index >= 0) {
+      s.selectedProjectIds.splice(index, 1)
+    } else {
+      s.selectedProjectIds.push(projectId)
+    }
+  })
+
+export const getSelectedProjects = (): Project[] => {
+  const state = useAppStore.getState()
+  return state.projects.filter((p) => state.selectedProjectIds.includes(p.id))
 }
