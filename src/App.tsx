@@ -7,6 +7,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/components/ui/resizable'
+import { Toaster } from '@/components/ui/sonner'
 import { migrateTranscriptsToIndexedDB } from '@/lib/migration'
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
           <InspectorPanel />
         </ResizablePanel>
       </ResizablePanelGroup>
+      <Toaster />
     </div>
   )
 }
