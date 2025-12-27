@@ -24,6 +24,7 @@ import {
 import type { Project } from '@/types'
 import { AlertCircle, ArrowDownAZ, ArrowUpAZ, CalendarArrowDown, CalendarArrowUp, Download, Filter, Loader2, MessageSquareText, MoreHorizontal, Plus, Settings, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useLocalStorage } from 'usehooks-ts'
 import { ExportDialog } from './ExportDialog'
 import { NewProjectDialog } from './NewProjectDialog'
 import { SettingsDialog } from './SettingsDialog'
@@ -40,8 +41,8 @@ export function Sidebar() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const [projectsToExport, setProjectsToExport] = useState<Project[]>([])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [sortOption, setSortOption] = useState<SortOption>('date-new')
+  const [searchQuery, setSearchQuery] = useLocalStorage('convo-sidebar-search', '')
+  const [sortOption, setSortOption] = useLocalStorage<SortOption>('convo-sidebar-sort', 'date-new')
   const [filterOpen, setFilterOpen] = useState(false)
 
   const selectedCount = selectedProjectIds.length
