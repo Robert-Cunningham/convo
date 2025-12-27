@@ -19,6 +19,7 @@ interface AppState {
   // Multi-select state (non-persisted)
   isMultiSelectMode: boolean
   selectedProjectIds: string[]
+  lastSelectedProjectId: string | null
 
   // Transcript cache (non-persisted, loaded on-demand from IndexedDB)
   transcriptCache: Map<string, TranscriptSegment[]>
@@ -50,6 +51,7 @@ export const useAppStore = create<AppState>()(
       // Multi-select state (non-persisted)
       isMultiSelectMode: false,
       selectedProjectIds: [],
+      lastSelectedProjectId: null,
 
       // Transcript cache (non-persisted)
       transcriptCache: new Map(),
@@ -252,6 +254,7 @@ export const toggleMultiSelectMode = () =>
     // Clear selections when exiting multi-select mode
     if (!s.isMultiSelectMode) {
       s.selectedProjectIds = []
+      s.lastSelectedProjectId = null
     }
   })
 
@@ -259,6 +262,7 @@ export const exitMultiSelectMode = () =>
   useAppStore.getState().mutate((s) => {
     s.isMultiSelectMode = false
     s.selectedProjectIds = []
+    s.lastSelectedProjectId = null
   })
 
 export const toggleProjectSelection = (projectId: string) =>
@@ -269,6 +273,27 @@ export const toggleProjectSelection = (projectId: string) =>
     } else {
       s.selectedProjectIds.push(projectId)
     }
+    s.lastSelectedProjectId = projectId
+  })
+
+export const selectProjectRange = (fromId: string, toId: string) =>
+  useAppStore.getState().mutate((s) => {
+    const fromIndex = s.projects.findIndex((p) => p.id === fromId)
+    const toIndex = s.projects.findIndex((p) => p.id === toId)
+
+    if (fromIndex === -1 || toIndex === -1) return
+
+    const start = Math.min(fromIndex, toIndex)
+    const end = Math.max(fromIndex, toIndex)
+
+    // Select all projects in the range
+    for (let i = start; i <= end; i++) {
+      const projectId = s.projects[i].id
+      if (!s.selectedProjectIds.includes(projectId)) {
+        s.selectedProjectIds.push(projectId)
+      }
+    }
+    s.lastSelectedProjectId = toId
   })
 
 export const getSelectedProjects = (): Project[] => {

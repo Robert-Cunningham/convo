@@ -8,19 +8,20 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { downloadMarkdown, exportProjectsAsZip, exportProjectsToText, exportProjectToMarkdown } from '@/lib/export'
 import { cn } from '@/lib/utils'
 import { createProjectsFromFiles, deleteProject } from '@/project'
 import {
   exitMultiSelectMode,
   getSelectedProjects,
   selectProject,
+  selectProjectRange,
   toggleMultiSelectMode,
   toggleProjectSelection,
   useAppStore,
 } from '@/store'
-import { AlertCircle, Copy, Download, Loader2, MessageSquareText, MoreHorizontal, Plus, Settings, Trash2 } from 'lucide-react'
+import { AlertCircle, Download, Loader2, MessageSquareText, MoreHorizontal, Plus, Settings, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { ExportDialog } from './ExportDialog'
 import { NewProjectDialog } from './NewProjectDialog'
 import { SettingsDialog } from './SettingsDialog'
 
@@ -29,8 +30,10 @@ export function Sidebar() {
   const selectedProjectId = useAppStore((state) => state.selectedProjectId)
   const isMultiSelectMode = useAppStore((state) => state.isMultiSelectMode)
   const selectedProjectIds = useAppStore((state) => state.selectedProjectIds)
+  const lastSelectedProjectId = useAppStore((state) => state.lastSelectedProjectId)
   const [newProjectOpen, setNewProjectOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
 
   const selectedCount = selectedProjectIds.length
 
@@ -46,37 +49,19 @@ export function Sidebar() {
     createProjectsFromFiles(files)
   }
 
-  const handleExportSelected = async () => {
-    const selectedProjects = getSelectedProjects()
-    if (selectedProjects.length === 0) return
-
-    if (selectedProjects.length === 1) {
-      // Single project: download as .md file
-      const project = selectedProjects[0]
-      const markdown = await exportProjectToMarkdown(project)
-      downloadMarkdown(markdown, project.name)
-    } else {
-      // Multiple projects: download as ZIP
-      await exportProjectsAsZip(selectedProjects)
+  const handleOpenExportDialog = () => {
+    if (selectedCount > 0) {
+      setExportDialogOpen(true)
     }
-
-    // Exit multi-select mode after export
-    exitMultiSelectMode()
   }
 
-  const handleCopyToClipboard = async () => {
-    const selectedProjects = getSelectedProjects()
-    if (selectedProjects.length === 0) return
-
-    const text = await exportProjectsToText(selectedProjects)
-    await navigator.clipboard.writeText(text)
-
-    exitMultiSelectMode()
-  }
-
-  const handleProjectClick = (projectId: string) => {
+  const handleProjectClick = (projectId: string, event: React.MouseEvent) => {
     if (isMultiSelectMode) {
-      toggleProjectSelection(projectId)
+      if (event.shiftKey && lastSelectedProjectId) {
+        selectProjectRange(lastSelectedProjectId, projectId)
+      } else {
+        toggleProjectSelection(projectId)
+      }
     } else {
       selectProject(projectId)
     }
@@ -90,6 +75,12 @@ export function Sidebar() {
         onFilesSelected={handleFilesSelected}
       />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <ExportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        projects={getSelectedProjects()}
+        onExportComplete={exitMultiSelectMode}
+      />
     <div className="flex h-full flex-col border-r bg-muted/40">
       {/* Logo/Header */}
       <div className="flex items-center gap-2 p-4">
@@ -153,7 +144,7 @@ export function Sidebar() {
                       'min-w-0 shrink flex-1 justify-start truncate',
                       !isMultiSelectMode && selectedProjectId === project.id && 'bg-accent'
                     )}
-                    onClick={() => handleProjectClick(project.id)}
+                    onClick={(e) => handleProjectClick(project.id, e)}
                   >
                     {project.status === 'loading' && (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin flex-shrink-0" />
@@ -194,16 +185,10 @@ export function Sidebar() {
           <Separator />
           <div className="flex items-center justify-between p-4">
             <span className="text-sm text-muted-foreground">{selectedCount} selected</span>
-            <div className="flex gap-2">
-              <Button size="sm" disabled={selectedCount === 0} onClick={handleCopyToClipboard}>
-                <Copy className="mr-2 h-4 w-4" />
-                Copy All
-              </Button>
-              <Button size="sm" disabled={selectedCount === 0} onClick={handleExportSelected}>
-                <Download className="mr-2 h-4 w-4" />
-                Export
-              </Button>
-            </div>
+            <Button size="sm" disabled={selectedCount === 0} onClick={handleOpenExportDialog}>
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
           </div>
         </>
       )}

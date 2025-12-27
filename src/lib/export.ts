@@ -1,6 +1,10 @@
 import type { Project, TranscriptSegment } from '../types'
 import { getTranscript } from './storage'
 
+export interface ExportOptions {
+  includeTimestamps?: boolean
+}
+
 /**
  * Gets the transcript for a project, loading from IndexedDB if needed
  */
@@ -63,9 +67,14 @@ function formatDate(timestamp: number): string {
 
 /**
  * Exports a single project's transcript to markdown format
- * Format: [M:SS] SpeakerName: text
+ * Format: [M:SS] SpeakerName: text (or just SpeakerName: text if timestamps disabled)
  */
-export async function exportProjectToMarkdown(project: Project): Promise<string> {
+export async function exportProjectToMarkdown(
+  project: Project,
+  options: ExportOptions = {}
+): Promise<string> {
+  const { includeTimestamps = true } = options
+
   const header = [
     `# ${project.name}`,
     '',
@@ -79,10 +88,13 @@ export async function exportProjectToMarkdown(project: Project): Promise<string>
   const segments = await getProjectTranscript(project)
   const transcript = segments
     .map((segment) => {
-      const timestamp = formatTimestamp(segment.startTime)
       const speaker = getSpeakerDisplayName(segment.speaker, project.speakerMap ?? {})
       const text = normalizeWhitespace(segment.text)
-      return `${timestamp} ${speaker}: ${text}`
+      if (includeTimestamps) {
+        const timestamp = formatTimestamp(segment.startTime)
+        return `${timestamp} ${speaker}: ${text}`
+      }
+      return `${speaker}: ${text}`
     })
     .join('\n')
 
@@ -134,9 +146,12 @@ function getUniqueFilename(name: string, existingNames: Set<string>): string {
 /**
  * Exports multiple projects to a single text string (for clipboard)
  */
-export async function exportProjectsToText(projects: Project[]): Promise<string> {
+export async function exportProjectsToText(
+  projects: Project[],
+  options: ExportOptions = {}
+): Promise<string> {
   const markdowns = await Promise.all(
-    projects.map((project) => exportProjectToMarkdown(project))
+    projects.map((project) => exportProjectToMarkdown(project, options))
   )
   return markdowns.join('\n\n---\n\n')
 }
@@ -144,14 +159,17 @@ export async function exportProjectsToText(projects: Project[]): Promise<string>
 /**
  * Exports multiple projects as a ZIP file containing .md files
  */
-export async function exportProjectsAsZip(projects: Project[]): Promise<void> {
+export async function exportProjectsAsZip(
+  projects: Project[],
+  options: ExportOptions = {}
+): Promise<void> {
   const JSZip = (await import('jszip')).default
 
   const zip = new JSZip()
   const usedFilenames = new Set<string>()
 
   for (const project of projects) {
-    const markdown = await exportProjectToMarkdown(project)
+    const markdown = await exportProjectToMarkdown(project, options)
     const filename = getUniqueFilename(project.name, usedFilenames)
     zip.file(`${filename}.md`, markdown)
   }
