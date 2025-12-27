@@ -29,6 +29,9 @@ interface AppState {
   // Used to distinguish "currently transcribing" from "was interrupted"
   activeTranscriptions: Set<string>
 
+  // Scroll-to state for global search (non-persisted)
+  scrollToSegmentId: string | null
+
   // Single immer-based mutator
   mutate: (fn: (state: AppState) => void) => void
 
@@ -59,6 +62,9 @@ export const useAppStore = create<AppState>()(
 
       // Active transcription tracking (non-persisted)
       activeTranscriptions: new Set(),
+
+      // Scroll-to state for global search (non-persisted)
+      scrollToSegmentId: null,
 
       // All state mutations should use this mutate() function for consistency.
       // It uses Immer's produce() to allow direct mutations of the draft state.
@@ -324,3 +330,9 @@ export const endTranscription = (projectId: string) =>
 
 export const isTranscribing = (projectId: string): boolean =>
   useAppStore.getState().activeTranscriptions.has(projectId)
+
+// Scroll-to helpers for global search
+export const setScrollToSegmentId = (segmentId: string | null) =>
+  useAppStore.getState().mutate((s) => {
+    s.scrollToSegmentId = segmentId
+  })

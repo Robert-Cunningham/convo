@@ -5,7 +5,7 @@ import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAudioPlayerNative as useAudioPlayer } from '@/hooks/useAudioPlayerNative'
-import { isTranscribing, selectSnippet, selectTemporarySnippet, setIsPlaying, useAppStore, useSnippets, useTranscript, useTranscriptLoading } from '@/store'
+import { isTranscribing, selectSnippet, selectTemporarySnippet, setIsPlaying, setScrollToSegmentId, useAppStore, useSnippets, useTranscript, useTranscriptLoading } from '@/store'
 import { retryProject } from '@/project'
 import type { TranscriptWord } from '@/types'
 import { AlertCircle, FileAudio, RefreshCw, Settings } from 'lucide-react'
@@ -29,6 +29,7 @@ export function MainPanel() {
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
   const isTranscriptLoading = useTranscriptLoading()
+  const scrollToSegmentId = useAppStore((state) => state.scrollToSegmentId)
 
   // Selection state for snippet creation
   const [selectionStart, setSelectionStart] = useState<WordPosition | null>(null)
@@ -89,6 +90,28 @@ export function MainPanel() {
     }
     prevIsPlayingRef.current = isPlaying
   }, [isPlaying, currentTime, allWords])
+
+  // Handle scroll-to from global search
+  useEffect(() => {
+    if (scrollToSegmentId && transcript.length > 0) {
+      const segmentIndex = transcript.findIndex((s) => s.id === scrollToSegmentId)
+      if (segmentIndex >= 0) {
+        const segment = transcript[segmentIndex]
+        // Scroll to the first word of the segment
+        const key = `${segmentIndex}-0`
+        const element = wordRefs.current.get(key)
+        if (element) {
+          setTimeout(() => {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }, 100)
+        }
+        // Seek to the segment's start time
+        seek(segment.startTime)
+        // Clear the scroll target
+        setScrollToSegmentId(null)
+      }
+    }
+  }, [scrollToSegmentId, transcript, seek])
 
   // Get global index of a word position
   const getGlobalIndex = useCallback((pos: WordPosition) => {

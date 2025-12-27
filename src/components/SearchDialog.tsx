@@ -4,7 +4,7 @@ import { Input } from './ui/input'
 import { ScrollArea } from './ui/scroll-area'
 import { Loader2, Search } from 'lucide-react'
 import { getAllTranscripts } from '@/lib/storage'
-import { selectProject, useAppStore } from '@/store'
+import { selectProject, setScrollToSegmentId, useAppStore } from '@/store'
 import type { Project, TranscriptSegment } from '@/types'
 
 interface SearchResult {
@@ -123,6 +123,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
   // Navigate to result
   const handleResultClick = useCallback(
     (result: SearchResult) => {
+      setScrollToSegmentId(result.segmentId)
       selectProject(result.projectId)
       onOpenChange(false)
     },
