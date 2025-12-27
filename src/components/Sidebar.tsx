@@ -1,26 +1,26 @@
-import { useState } from 'react'
-import {
-  useAppStore,
-  selectProject,
-  toggleMultiSelectMode,
-  toggleProjectSelection,
-  exitMultiSelectMode,
-  getSelectedProjects,
-} from '@/store'
-import { createProjectsFromFiles, deleteProject } from '@/project'
-import { exportProjectsAsZip, exportProjectToMarkdown, downloadMarkdown, exportProjectsToText } from '@/lib/export'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, Settings, MessageSquareText, MoreHorizontal, Trash2, Download, Copy, Loader2, AlertCircle } from 'lucide-react'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
+import { downloadMarkdown, exportProjectsAsZip, exportProjectsToText, exportProjectToMarkdown } from '@/lib/export'
 import { cn } from '@/lib/utils'
+import { createProjectsFromFiles, deleteProject } from '@/project'
+import {
+  exitMultiSelectMode,
+  getSelectedProjects,
+  selectProject,
+  toggleMultiSelectMode,
+  toggleProjectSelection,
+  useAppStore,
+} from '@/store'
+import { AlertCircle, Copy, Download, Loader2, MessageSquareText, MoreHorizontal, Plus, Settings, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { NewProjectDialog } from './NewProjectDialog'
 import { SettingsDialog } from './SettingsDialog'
 
@@ -109,7 +109,7 @@ export function Sidebar() {
 
       <Separator />
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 w-full">
         <div className="p-4">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -161,7 +161,7 @@ export function Sidebar() {
                     {project.status === 'error' && (
                       <AlertCircle className="mr-2 h-4 w-4 text-destructive flex-shrink-0" />
                     )}
-                    <span className="truncate">{project.name}</span>
+                    <span className="truncate max-w-[15dvh]">{project.name}</span>
                   </Button>
                   {!isMultiSelectMode && (
                     <DropdownMenu>
