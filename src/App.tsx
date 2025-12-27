@@ -1,6 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { useHotkeys } from 'react-hotkeys-hook'
 import { InspectorPanel } from '@/components/InspectorPanel'
 import { MainPanel } from '@/components/MainPanel'
+import { SearchDialog } from '@/components/SearchDialog'
 import { Sidebar } from '@/components/Sidebar'
 import {
   ResizableHandle,
@@ -11,6 +13,11 @@ import { Toaster } from '@/components/ui/sonner'
 import { migrateTranscriptsToIndexedDB } from '@/lib/migration'
 
 function App() {
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  // Global search hotkey (Ctrl+F / Cmd+F)
+  useHotkeys('ctrl+f, meta+f', () => setSearchOpen(true), { preventDefault: true })
+
   // Migrate existing transcripts from localStorage to IndexedDB on first load
   useEffect(() => {
     migrateTranscriptsToIndexedDB().catch(console.error)
@@ -36,6 +43,7 @@ function App() {
         </ResizablePanel>
       </ResizablePanelGroup>
       <Toaster />
+      <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </div>
   )
 }

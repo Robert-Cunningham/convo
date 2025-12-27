@@ -95,3 +95,13 @@ export async function deleteTranscript(id: string): Promise<void> {
   const db = await getDB()
   await db.delete('transcripts', id)
 }
+
+export async function getAllTranscripts(): Promise<Map<string, TranscriptSegment[]>> {
+  const db = await getDB()
+  const allRecords = await db.getAll('transcripts')
+  const map = new Map<string, TranscriptSegment[]>()
+  for (const record of allRecords) {
+    map.set(record.projectId, record.segments)
+  }
+  return map
+}
