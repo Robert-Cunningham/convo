@@ -132,6 +132,16 @@ function getUniqueFilename(name: string, existingNames: Set<string>): string {
 }
 
 /**
+ * Exports multiple projects to a single text string (for clipboard)
+ */
+export async function exportProjectsToText(projects: Project[]): Promise<string> {
+  const markdowns = await Promise.all(
+    projects.map((project) => exportProjectToMarkdown(project))
+  )
+  return markdowns.join('\n\n---\n\n')
+}
+
+/**
  * Exports multiple projects as a ZIP file containing .md files
  */
 export async function exportProjectsAsZip(projects: Project[]): Promise<void> {

@@ -8,7 +8,7 @@ import {
   getSelectedProjects,
 } from '@/store'
 import { createProjectsFromFiles, deleteProject } from '@/project'
-import { exportProjectsAsZip, exportProjectToMarkdown, downloadMarkdown } from '@/lib/export'
+import { exportProjectsAsZip, exportProjectToMarkdown, downloadMarkdown, exportProjectsToText } from '@/lib/export'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -19,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, Settings, MessageSquareText, MoreHorizontal, Trash2, Download, Loader2, AlertCircle } from 'lucide-react'
+import { Plus, Settings, MessageSquareText, MoreHorizontal, Trash2, Download, Copy, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NewProjectDialog } from './NewProjectDialog'
 import { SettingsDialog } from './SettingsDialog'
@@ -61,6 +61,16 @@ export function Sidebar() {
     }
 
     // Exit multi-select mode after export
+    exitMultiSelectMode()
+  }
+
+  const handleCopyToClipboard = async () => {
+    const selectedProjects = getSelectedProjects()
+    if (selectedProjects.length === 0) return
+
+    const text = await exportProjectsToText(selectedProjects)
+    await navigator.clipboard.writeText(text)
+
     exitMultiSelectMode()
   }
 
@@ -184,10 +194,16 @@ export function Sidebar() {
           <Separator />
           <div className="flex items-center justify-between p-4">
             <span className="text-sm text-muted-foreground">{selectedCount} selected</span>
-            <Button size="sm" disabled={selectedCount === 0} onClick={handleExportSelected}>
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" disabled={selectedCount === 0} onClick={handleCopyToClipboard}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy All
+              </Button>
+              <Button size="sm" disabled={selectedCount === 0} onClick={handleExportSelected}>
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+            </div>
           </div>
         </>
       )}
