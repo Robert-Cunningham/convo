@@ -19,6 +19,7 @@ import {
   toggleProjectSelection,
   useAppStore,
 } from '@/store'
+import type { Project } from '@/types'
 import { AlertCircle, Download, Loader2, MessageSquareText, MoreHorizontal, Plus, Settings, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { ExportDialog } from './ExportDialog'
@@ -34,6 +35,7 @@ export function Sidebar() {
   const [newProjectOpen, setNewProjectOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [projectsToExport, setProjectsToExport] = useState<Project[]>([])
 
   const selectedCount = selectedProjectIds.length
 
@@ -50,7 +52,9 @@ export function Sidebar() {
   }
 
   const handleOpenExportDialog = () => {
-    if (selectedCount > 0) {
+    const selected = getSelectedProjects()
+    if (selected.length > 0) {
+      setProjectsToExport(selected)
       setExportDialogOpen(true)
     }
   }
@@ -78,7 +82,7 @@ export function Sidebar() {
       <ExportDialog
         open={exportDialogOpen}
         onOpenChange={setExportDialogOpen}
-        projects={getSelectedProjects()}
+        projects={projectsToExport}
         onExportComplete={exitMultiSelectMode}
       />
     <div className="flex h-full flex-col border-r bg-muted/40">
