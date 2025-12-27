@@ -296,6 +296,16 @@ export const selectProjectRange = (fromId: string, toId: string) =>
     s.lastSelectedProjectId = toId
   })
 
+export const selectProjectsById = (ids: string[], lastId: string) =>
+  useAppStore.getState().mutate((s) => {
+    for (const id of ids) {
+      if (!s.selectedProjectIds.includes(id)) {
+        s.selectedProjectIds.push(id)
+      }
+    }
+    s.lastSelectedProjectId = lastId
+  })
+
 export const getSelectedProjects = (): Project[] => {
   const state = useAppStore.getState()
   return state.projects.filter((p) => state.selectedProjectIds.includes(p.id))

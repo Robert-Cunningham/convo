@@ -6,6 +6,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
@@ -14,17 +16,19 @@ import {
   exitMultiSelectMode,
   getSelectedProjects,
   selectProject,
-  selectProjectRange,
+  selectProjectsById,
   toggleMultiSelectMode,
   toggleProjectSelection,
   useAppStore,
 } from '@/store'
 import type { Project } from '@/types'
-import { AlertCircle, Download, Loader2, MessageSquareText, MoreHorizontal, Plus, Settings, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { AlertCircle, ArrowDownAZ, ArrowUpAZ, CalendarArrowDown, CalendarArrowUp, Download, Filter, Loader2, MessageSquareText, MoreHorizontal, Plus, Settings, Trash2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { ExportDialog } from './ExportDialog'
 import { NewProjectDialog } from './NewProjectDialog'
 import { SettingsDialog } from './SettingsDialog'
+
+type SortOption = 'name-asc' | 'name-desc' | 'date-new' | 'date-old'
 
 export function Sidebar() {
   const projects = useAppStore((state) => state.projects)
@@ -36,8 +40,33 @@ export function Sidebar() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const [projectsToExport, setProjectsToExport] = useState<Project[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortOption, setSortOption] = useState<SortOption>('date-new')
+  const [filterOpen, setFilterOpen] = useState(false)
 
   const selectedCount = selectedProjectIds.length
+  const hasActiveFilter = searchQuery !== '' || sortOption !== 'date-new'
+
+  const filteredProjects = useMemo(() => {
+    let result = projects.filter((p) =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+
+    result = [...result].sort((a, b) => {
+      switch (sortOption) {
+        case 'name-asc':
+          return a.name.localeCompare(b.name)
+        case 'name-desc':
+          return b.name.localeCompare(a.name)
+        case 'date-new':
+          return b.createdAt - a.createdAt
+        case 'date-old':
+          return a.createdAt - b.createdAt
+      }
+    })
+
+    return result
+  }, [projects, searchQuery, sortOption])
 
   const handleNewProject = () => {
     setNewProjectOpen(true)
@@ -62,7 +91,17 @@ export function Sidebar() {
   const handleProjectClick = (projectId: string, event: React.MouseEvent) => {
     if (isMultiSelectMode) {
       if (event.shiftKey && lastSelectedProjectId) {
-        selectProjectRange(lastSelectedProjectId, projectId)
+        // Use filtered array indices for range selection
+        const fromIndex = filteredProjects.findIndex((p) => p.id === lastSelectedProjectId)
+        const toIndex = filteredProjects.findIndex((p) => p.id === projectId)
+        if (fromIndex !== -1 && toIndex !== -1) {
+          const start = Math.min(fromIndex, toIndex)
+          const end = Math.max(fromIndex, toIndex)
+          const idsToSelect = filteredProjects.slice(start, end + 1).map((p) => p.id)
+          selectProjectsById(idsToSelect, projectId)
+        } else {
+          toggleProjectSelection(projectId)
+        }
       } else {
         toggleProjectSelection(projectId)
       }
@@ -111,21 +150,86 @@ export function Sidebar() {
               Projects
             </h3>
             {projects.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 text-xs"
-                onClick={toggleMultiSelectMode}
-              >
-                {isMultiSelectMode ? 'Cancel' : 'Select'}
-              </Button>
+              <div className="flex items-center gap-1">
+                <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="relative h-6 w-6">
+                      <Filter className="h-3.5 w-3.5" />
+                      {hasActiveFilter && (
+                        <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56" align="end">
+                    <div className="space-y-3">
+                      <Input
+                        placeholder="Search projects..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="h-8"
+                      />
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-muted-foreground">Sort by</p>
+                        <div className="grid grid-cols-2 gap-1">
+                          <Button
+                            variant={sortOption === 'name-asc' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            className="h-8 justify-start text-xs"
+                            onClick={() => setSortOption('name-asc')}
+                          >
+                            <ArrowDownAZ className="mr-1.5 h-3.5 w-3.5" />
+                            A-Z
+                          </Button>
+                          <Button
+                            variant={sortOption === 'name-desc' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            className="h-8 justify-start text-xs"
+                            onClick={() => setSortOption('name-desc')}
+                          >
+                            <ArrowUpAZ className="mr-1.5 h-3.5 w-3.5" />
+                            Z-A
+                          </Button>
+                          <Button
+                            variant={sortOption === 'date-new' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            className="h-8 justify-start text-xs"
+                            onClick={() => setSortOption('date-new')}
+                          >
+                            <CalendarArrowDown className="mr-1.5 h-3.5 w-3.5" />
+                            Newest
+                          </Button>
+                          <Button
+                            variant={sortOption === 'date-old' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            className="h-8 justify-start text-xs"
+                            onClick={() => setSortOption('date-old')}
+                          >
+                            <CalendarArrowUp className="mr-1.5 h-3.5 w-3.5" />
+                            Oldest
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={toggleMultiSelectMode}
+                >
+                  {isMultiSelectMode ? 'Cancel' : 'Select'}
+                </Button>
+              </div>
             )}
           </div>
           {projects.length === 0 ? (
             <p className="text-sm text-muted-foreground">No projects yet</p>
+          ) : filteredProjects.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No matching projects</p>
           ) : (
             <div className="space-y-1">
-              {projects.map((project) => (
+              {filteredProjects.map((project) => (
                 <div key={project.id} className="group flex items-center gap-1 overflow-hidden">
                   {isMultiSelectMode && (
                     <Checkbox
