@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -16,16 +16,17 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
-  const [apiKey, setApiKey] = useState('')
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {open && <SettingsDialogContent onOpenChange={onOpenChange} />}
+    </Dialog>
+  )
+}
 
-  useEffect(() => {
-    if (open) {
-      const savedKey = loadApiKey()
-      if (savedKey) {
-        setApiKey(savedKey)
-      }
-    }
-  }, [open])
+function SettingsDialogContent({
+  onOpenChange,
+}: Pick<SettingsDialogProps, 'onOpenChange'>) {
+  const [apiKey, setApiKey] = useState(() => loadApiKey() ?? '')
 
   const handleSave = () => {
     saveApiKey(apiKey)
@@ -33,8 +34,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <DialogContent>
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
@@ -56,7 +56,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             Save Settings
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+    </DialogContent>
   )
 }

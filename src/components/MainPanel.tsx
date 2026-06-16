@@ -5,18 +5,37 @@ import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAudioPlayerNative as useAudioPlayer } from '@/hooks/useAudioPlayerNative'
+import { formatTime } from '@/lib/time'
 import { isTranscribing, selectSnippet, selectTemporarySnippet, setIsPlaying, setScrollToSegmentId, useAppStore, useSnippets, useTranscript, useTranscriptLoading } from '@/store'
 import { retryProject } from '@/project'
 import type { TranscriptWord } from '@/types'
 import { AlertCircle, FileAudio, RefreshCw, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { formatTime, PlaybackControls } from './PlaybackControls'
+import { PlaybackControls } from './PlaybackControls'
 import { SpeakersPanel } from './SpeakersPanel'
 
 interface WordPosition {
   segmentIndex: number
   wordIndex: number
   word: TranscriptWord
+}
+
+interface SelectionState {
+  projectId: string | null
+  selectionStart: WordPosition | null
+  selectionEnd: WordPosition | null
+  isSelecting: boolean
+  hoverPosition: WordPosition | null
+}
+
+function createEmptySelection(projectId: string | null): SelectionState {
+  return {
+    projectId,
+    selectionStart: null,
+    selectionEnd: null,
+    isSelecting: false,
+    hoverPosition: null,
+  }
 }
 
 export function MainPanel() {
@@ -31,11 +50,18 @@ export function MainPanel() {
   const isTranscriptLoading = useTranscriptLoading()
   const scrollToSegmentId = useAppStore((state) => state.scrollToSegmentId)
 
-  // Selection state for snippet creation
-  const [selectionStart, setSelectionStart] = useState<WordPosition | null>(null)
-  const [selectionEnd, setSelectionEnd] = useState<WordPosition | null>(null)
-  const [isSelecting, setIsSelecting] = useState(false)
-  const [hoverPosition, setHoverPosition] = useState<WordPosition | null>(null)
+  const [selection, setSelection] = useState<SelectionState>(() =>
+    createEmptySelection(selectedProjectId)
+  )
+  const activeSelection = selection.projectId === selectedProjectId
+    ? selection
+    : createEmptySelection(selectedProjectId)
+  const {
+    selectionStart,
+    selectionEnd,
+    isSelecting,
+    hoverPosition,
+  } = activeSelection
 
   // Refs for auto-scroll on play
   const wordRefs = useRef<Map<string, HTMLSpanElement>>(new Map())
@@ -47,14 +73,6 @@ export function MainPanel() {
     isPlaying,
     onPlaybackEnd: () => setIsPlaying(false),
   })
-
-  // Reset selection state when project changes
-  useEffect(() => {
-    setSelectionStart(null)
-    setSelectionEnd(null)
-    setIsSelecting(false)
-    setHoverPosition(null)
-  }, [selectedProjectId])
 
   // Flatten all words with their positions for easier comparison
   const allWords = useMemo(() => {
@@ -143,14 +161,22 @@ export function MainPanel() {
   const handleWordClick = useCallback((pos: WordPosition) => {
     if (!isSelecting) {
       // Start new selection
-      setSelectionStart(pos)
-      setSelectionEnd(null)
-      setIsSelecting(true)
-      setHoverPosition(pos)
+      setSelection({
+        projectId: selectedProjectId,
+        selectionStart: pos,
+        selectionEnd: null,
+        isSelecting: true,
+        hoverPosition: pos,
+      })
     } else {
       // End selection
-      setSelectionEnd(pos)
-      setIsSelecting(false)
+      setSelection({
+        projectId: selectedProjectId,
+        selectionStart,
+        selectionEnd: pos,
+        isSelecting: false,
+        hoverPosition: pos,
+      })
 
       // Create snippet from selection
       if (selectionStart) {
@@ -170,24 +196,25 @@ export function MainPanel() {
         }
       }
     }
-  }, [isSelecting, selectionStart, getGlobalIndex, allWords])
+  }, [isSelecting, selectedProjectId, selectionStart, getGlobalIndex, allWords])
 
   // Handle word hover during selection
   const handleWordHover = useCallback((pos: WordPosition) => {
     if (isSelecting) {
-      setHoverPosition(pos)
+      setSelection((current) =>
+        current.projectId === selectedProjectId && current.isSelecting
+          ? { ...current, hoverPosition: pos }
+          : current
+      )
     }
-  }, [isSelecting])
+  }, [isSelecting, selectedProjectId])
 
   // Cancel selection on escape
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape' && isSelecting) {
-      setIsSelecting(false)
-      setSelectionStart(null)
-      setSelectionEnd(null)
-      setHoverPosition(null)
+      setSelection(createEmptySelection(selectedProjectId))
     }
-  }, [isSelecting])
+  }, [isSelecting, selectedProjectId])
 
   const handleOpenProjectSettings = () => {
     console.log('Open project settings')

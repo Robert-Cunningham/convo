@@ -80,8 +80,9 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         // Strip transcript arrays from projects to avoid localStorage quota issues
         projects: state.projects.map((p) => {
-          const { transcript, ...rest } = p
-          return rest
+          const project = { ...p }
+          delete project.transcript
+          return project
         }),
         selectedProjectId: state.selectedProjectId,
       }),

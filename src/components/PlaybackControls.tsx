@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { formatTime } from '@/lib/time'
 import { Pause, Play } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -123,10 +124,4 @@ export function PlaybackControls({
       </div>
     </div>
   )
-}
-
-export function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${secs.toString().padStart(2, '0')}`
 }

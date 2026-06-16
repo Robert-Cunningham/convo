@@ -23,11 +23,21 @@ interface SearchDialogProps {
 }
 
 export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {open && <SearchDialogContent onOpenChange={onOpenChange} />}
+    </Dialog>
+  )
+}
+
+function SearchDialogContent({
+  onOpenChange,
+}: Pick<SearchDialogProps, 'onOpenChange'>) {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [transcripts, setTranscripts] = useState<Map<string, TranscriptSegment[]>>(new Map())
-  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [selectedIndexState, setSelectedIndexState] = useState({ query: '', index: 0 })
   const inputRef = useRef<HTMLInputElement>(null)
   const resultsContainerRef = useRef<HTMLDivElement>(null)
 
@@ -46,22 +56,31 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
     return () => clearTimeout(timer)
   }, [query])
 
-  // Load all transcripts when dialog opens
+  // Load all transcripts when dialog content mounts
   useEffect(() => {
-    if (open) {
-      setIsLoading(true)
-      setQuery('')
-      setDebouncedQuery('')
-      setSelectedIndex(0)
+    let cancelled = false
+    const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 50)
 
-      getAllTranscripts()
-        .then(setTranscripts)
-        .finally(() => setIsLoading(false))
+    getAllTranscripts()
+      .then((loadedTranscripts) => {
+        if (!cancelled) {
+          setTranscripts(loadedTranscripts)
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load transcripts for search:', error)
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      })
 
-      // Focus input after brief delay for animation
-      setTimeout(() => inputRef.current?.focus(), 50)
+    return () => {
+      cancelled = true
+      window.clearTimeout(focusTimer)
     }
-  }, [open])
+  }, [])
 
   // Search algorithm
   const results = useMemo(() => {
@@ -103,10 +122,23 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
     return matches.slice(0, 100)
   }, [debouncedQuery, transcripts, projectMap])
 
-  // Reset selected index when results change
-  useEffect(() => {
-    setSelectedIndex(0)
-  }, [results])
+  const selectedIndex = selectedIndexState.query === debouncedQuery
+    ? Math.min(selectedIndexState.index, Math.max(results.length - 1, 0))
+    : 0
+
+  const setSelectedIndex = useCallback(
+    (nextIndex: number | ((currentIndex: number) => number)) => {
+      setSelectedIndexState((current) => {
+        const currentIndex = current.query === debouncedQuery ? current.index : 0
+        const index = typeof nextIndex === 'function'
+          ? nextIndex(currentIndex)
+          : nextIndex
+
+        return { query: debouncedQuery, index }
+      })
+    },
+    [debouncedQuery]
+  )
 
   // Scroll selected item into view
   useEffect(() => {
@@ -133,6 +165,8 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
   // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (results.length === 0) return
+
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault()
@@ -150,7 +184,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
           break
       }
     },
-    [results, selectedIndex, handleResultClick]
+    [results, selectedIndex, setSelectedIndex, handleResultClick]
   )
 
   // Generate context snippet with highlighted match
@@ -169,8 +203,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl gap-0 p-0" showCloseButton={false}>
+    <DialogContent className="max-w-2xl gap-0 p-0" showCloseButton={false}>
         <div className="flex items-center gap-2 border-b px-3" onKeyDown={handleKeyDown}>
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <Input
@@ -227,7 +260,6 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
             </span>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+    </DialogContent>
   )
 }
