@@ -22,7 +22,7 @@ export async function transcribeAudio(
   apiKey: string
 ): Promise<TranscriptSegment[]> {
   const formData = new FormData()
-  formData.append('model_id', 'scribe_v1')
+  formData.append('model_id', 'scribe_v2')
   formData.append('file', file)
   formData.append('diarize', 'true')
   formData.append('timestamps_granularity', 'word')
