@@ -19,6 +19,6 @@ export default defineConfig({
     },
   },
   server: {
-    allowedHosts: ['robert-compute'],
+    allowedHosts: ['robert-compute', 'robert-compute.tail25d3b.ts.net'],
   },
 })
