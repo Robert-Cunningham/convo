@@ -318,6 +318,19 @@ export const selectProjectsById = (ids: string[], lastId: string) =>
     s.lastSelectedProjectId = lastId
   })
 
+export const replaceProjectSelection = (ids: string[], lastId?: string | null) =>
+  useAppStore.getState().mutate((s) => {
+    const uniqueIds = Array.from(new Set(ids))
+    s.selectedProjectIds = uniqueIds
+    s.lastSelectedProjectId = lastId ?? uniqueIds[uniqueIds.length - 1] ?? null
+  })
+
+export const clearProjectSelection = () =>
+  useAppStore.getState().mutate((s) => {
+    s.selectedProjectIds = []
+    s.lastSelectedProjectId = null
+  })
+
 export const getSelectedProjects = (): Project[] => {
   const state = useAppStore.getState()
   return state.projects.filter((p) => state.selectedProjectIds.includes(p.id))

@@ -13,8 +13,10 @@ import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { createProjectsFromFiles, deleteProject } from '@/project'
 import {
+  clearProjectSelection,
   exitMultiSelectMode,
   getSelectedProjects,
+  replaceProjectSelection,
   selectProject,
   selectProjectsById,
   toggleMultiSelectMode,
@@ -41,6 +43,7 @@ export function Sidebar() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const [projectsToExport, setProjectsToExport] = useState<Project[]>([])
+  const [isDeletingSelected, setIsDeletingSelected] = useState(false)
   const [searchQuery, setSearchQuery] = useLocalStorage('convo-sidebar-search', '')
   const [sortOption, setSortOption] = useLocalStorage<SortOption>('convo-sidebar-sort', 'date-new')
   const [filterOpen, setFilterOpen] = useState(false)
@@ -69,6 +72,12 @@ export function Sidebar() {
     return result
   }, [projects, searchQuery, sortOption])
 
+  const visibleSelectedCount = filteredProjects.filter((project) =>
+    selectedProjectIds.includes(project.id)
+  ).length
+  const allVisibleProjectsSelected =
+    filteredProjects.length > 0 && visibleSelectedCount === filteredProjects.length
+
   const handleNewProject = () => {
     setNewProjectOpen(true)
   }
@@ -86,6 +95,27 @@ export function Sidebar() {
     if (selected.length > 0) {
       setProjectsToExport(selected)
       setExportDialogOpen(true)
+    }
+  }
+
+  const handleSelectAllProjects = () => {
+    replaceProjectSelection(filteredProjects.map((project) => project.id))
+  }
+
+  const handleSelectNoProjects = () => {
+    clearProjectSelection()
+  }
+
+  const handleDeleteSelectedProjects = async () => {
+    const selected = getSelectedProjects()
+    if (selected.length === 0) return
+
+    setIsDeletingSelected(true)
+    try {
+      await Promise.all(selected.map((project) => deleteProject(project.id)))
+      exitMultiSelectMode()
+    } finally {
+      setIsDeletingSelected(false)
     }
   }
 
@@ -224,6 +254,28 @@ export function Sidebar() {
               </div>
             )}
           </div>
+          {isMultiSelectMode && filteredProjects.length > 0 && (
+            <div className="mb-2 flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                disabled={allVisibleProjectsSelected}
+                onClick={handleSelectAllProjects}
+              >
+                Select all
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                disabled={selectedCount === 0}
+                onClick={handleSelectNoProjects}
+              >
+                Select none
+              </Button>
+            </div>
+          )}
           {projects.length === 0 ? (
             <p className="text-sm text-muted-foreground">No projects yet</p>
           ) : filteredProjects.length === 0 ? (
@@ -292,12 +344,27 @@ export function Sidebar() {
       {isMultiSelectMode && (
         <>
           <Separator />
-          <div className="flex items-center justify-between p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-4">
             <span className="text-sm text-muted-foreground">{selectedCount} selected</span>
-            <Button size="sm" disabled={selectedCount === 0} onClick={handleOpenExportDialog}>
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={selectedCount === 0 || isDeletingSelected}
+                onClick={handleDeleteSelectedProjects}
+              >
+                {isDeletingSelected ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                Delete
+              </Button>
+              <Button size="sm" disabled={selectedCount === 0} onClick={handleOpenExportDialog}>
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+            </div>
           </div>
         </>
       )}
