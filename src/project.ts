@@ -3,6 +3,8 @@ import { useAppStore, cacheTranscript, clearTranscriptCache, startTranscription,
 import { saveAudioFile, loadApiKey, deleteAudioFile, getAudioFile, saveTranscript, deleteTranscript } from './lib/storage'
 import { transcribeAudio } from './lib/elevenlabs'
 
+const MAX_CONCURRENT_TRANSCRIPTIONS = 2
+
 // Check if a file with the same audioFileName already exists
 export const isDuplicateFile = (fileName: string): boolean => {
   const projects = useAppStore.getState().projects
@@ -61,7 +63,7 @@ export const deleteProject = async (projectId: string) => {
   })
 }
 
-// Process multiple files in parallel, creating projects immediately with loading state
+// Process multiple files, creating projects immediately with loading state
 export const createProjectsFromFiles = async (files: File[]) => {
   const store = useAppStore.getState()
   const apiKey = loadApiKey()
@@ -107,41 +109,52 @@ export const createProjectsFromFiles = async (files: File[]) => {
     return
   }
 
-  // Process all files in parallel
+  const processProjectFile = async ({ project, file }: { project: Project; file: File }) => {
+    // Mark as actively processing so reloads can distinguish interrupted work.
+    startTranscription(project.id)
+
+    try {
+      // Save audio file FIRST so retry is possible even if transcription fails.
+      const audioFileId = crypto.randomUUID()
+      await saveAudioFile(audioFileId, file)
+      updateProject(project.id, { audioFileId })
+
+      // Transcribe the audio
+      const transcript = await transcribeAudio(file, apiKey)
+
+      // Save transcript to IndexedDB
+      const transcriptId = crypto.randomUUID()
+      await saveTranscript(transcriptId, project.id, transcript)
+
+      // Update project with reference (not inline data)
+      updateProject(project.id, {
+        transcriptId,
+        status: 'ready',
+      })
+
+      // Cache transcript for immediate use
+      cacheTranscript(project.id, transcript)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      updateProject(project.id, {
+        status: 'error',
+        error: errorMessage,
+      })
+    } finally {
+      endTranscription(project.id)
+    }
+  }
+
+  // Keep browser memory and API pressure bounded for batch imports.
+  const queue = [...projectsToProcess]
+  const workerCount = Math.min(MAX_CONCURRENT_TRANSCRIPTIONS, queue.length)
   await Promise.allSettled(
-    projectsToProcess.map(async ({ project, file }) => {
-      // Mark as actively processing so reloads can distinguish interrupted work.
-      startTranscription(project.id)
-
-      try {
-        // Save audio file FIRST so retry is possible even if transcription fails.
-        const audioFileId = crypto.randomUUID()
-        await saveAudioFile(audioFileId, file)
-        updateProject(project.id, { audioFileId })
-
-        // Transcribe the audio
-        const transcript = await transcribeAudio(file, apiKey)
-
-        // Save transcript to IndexedDB
-        const transcriptId = crypto.randomUUID()
-        await saveTranscript(transcriptId, project.id, transcript)
-
-        // Update project with reference (not inline data)
-        updateProject(project.id, {
-          transcriptId,
-          status: 'ready',
-        })
-
-        // Cache transcript for immediate use
-        cacheTranscript(project.id, transcript)
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-        updateProject(project.id, {
-          status: 'error',
-          error: errorMessage,
-        })
-      } finally {
-        endTranscription(project.id)
+    Array.from({ length: workerCount }, async () => {
+      while (queue.length > 0) {
+        const item = queue.shift()
+        if (item) {
+          await processProjectFile(item)
+        }
       }
     })
   )
