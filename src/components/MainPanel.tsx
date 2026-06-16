@@ -8,7 +8,7 @@ import { useAudioPlayerNative as useAudioPlayer } from '@/hooks/useAudioPlayerNa
 import { formatTime } from '@/lib/time'
 import { isTranscribing, selectSnippet, selectTemporarySnippet, setIsPlaying, setScrollToSegmentId, useAppStore, useSnippets, useTranscript, useTranscriptLoading } from '@/store'
 import { retryProject } from '@/project'
-import type { TranscriptWord } from '@/types'
+import type { TranscriptToolMode, TranscriptWord } from '@/types'
 import { AlertCircle, FileAudio, RefreshCw, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PlaybackControls } from './PlaybackControls'
@@ -53,6 +53,8 @@ export function MainPanel() {
   const [selection, setSelection] = useState<SelectionState>(() =>
     createEmptySelection(selectedProjectId)
   )
+  const [toolMode, setToolMode] = useState<TranscriptToolMode>('pointer')
+  const isSelectionMode = toolMode === 'select'
   const activeSelection = selection.projectId === selectedProjectId
     ? selection
     : createEmptySelection(selectedProjectId)
@@ -159,6 +161,11 @@ export function MainPanel() {
 
   // Handle word click for selection
   const handleWordClick = useCallback((pos: WordPosition) => {
+    if (!isSelectionMode) {
+      seek(pos.word.start)
+      return
+    }
+
     if (!isSelecting) {
       // Start new selection
       setSelection({
@@ -196,23 +203,34 @@ export function MainPanel() {
         }
       }
     }
-  }, [isSelecting, selectedProjectId, selectionStart, getGlobalIndex, allWords])
+  }, [isSelectionMode, seek, isSelecting, selectedProjectId, selectionStart, getGlobalIndex, allWords])
 
   // Handle word hover during selection
   const handleWordHover = useCallback((pos: WordPosition) => {
-    if (isSelecting) {
+    if (isSelectionMode && isSelecting) {
       setSelection((current) =>
         current.projectId === selectedProjectId && current.isSelecting
           ? { ...current, hoverPosition: pos }
           : current
       )
     }
-  }, [isSelecting, selectedProjectId])
+  }, [isSelectionMode, isSelecting, selectedProjectId])
 
   // Cancel selection on escape
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape' && isSelecting) {
+    if (e.key === 'Escape' && isSelectionMode && isSelecting) {
       setSelection(createEmptySelection(selectedProjectId))
+    }
+  }, [isSelectionMode, isSelecting, selectedProjectId])
+
+  const handleToolModeChange = useCallback((mode: TranscriptToolMode) => {
+    setToolMode(mode)
+    if (mode !== 'select' && isSelecting) {
+      setSelection((current) =>
+        current.projectId === selectedProjectId
+          ? { ...current, isSelecting: false, selectionEnd: current.hoverPosition }
+          : current
+      )
     }
   }, [isSelecting, selectedProjectId])
 
@@ -348,6 +366,7 @@ export function MainPanel() {
                         {segment.words?.map((word, wordIndex) => {
                           const pos: WordPosition = { segmentIndex, wordIndex, word }
                           const isSelected = isWordInSelection(pos)
+                          const isActive = isPlaying && currentTime >= word.start && currentTime < word.end
                           const isLastWord = wordIndex === (segment.words?.length ?? 0) - 1
 
                           return (
@@ -366,7 +385,11 @@ export function MainPanel() {
                                 className={`transition-colors ${
                                   isSelected
                                     ? 'bg-yellow-200 dark:bg-yellow-800'
-                                    : 'hover:bg-muted'
+                                    : isActive
+                                      ? 'bg-muted text-foreground'
+                                    : isSelectionMode
+                                      ? 'hover:bg-yellow-100 dark:hover:bg-yellow-900/70'
+                                      : 'hover:bg-muted'
                                 }`}
                               >
                                 {word.text}
@@ -390,7 +413,7 @@ export function MainPanel() {
           <div className="space-y-3 p-4">
             {snippets.length === 0 ? (
               <p className="py-8 text-center text-muted-foreground">
-                No snippets saved yet. Click on words in the transcript to create snippets.
+                No snippets saved yet
               </p>
             ) : (
               snippets.map((snippet) => (
@@ -429,9 +452,11 @@ export function MainPanel() {
         isLoaded={isLoaded}
         isPlaying={isPlaying}
         playbackRate={playbackRate}
+        toolMode={toolMode}
         onSeek={seek}
         onTogglePlayback={togglePlayback}
         onPlaybackRateChange={setPlaybackRate}
+        onToolModeChange={handleToolModeChange}
       />
     </Tabs>
   )

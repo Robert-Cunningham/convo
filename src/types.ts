@@ -47,3 +47,5 @@ export interface SelectedItem {
 }
 
 export type ViewMode = 'transcript' | 'snippets'
+
+export type TranscriptToolMode = 'pointer' | 'select'

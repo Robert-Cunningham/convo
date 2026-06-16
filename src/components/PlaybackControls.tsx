@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { formatTime } from '@/lib/time'
-import { Pause, Play } from 'lucide-react'
+import type { TranscriptToolMode } from '@/types'
+import { MousePointer2, Pause, Play, TextSelect } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 const PLAYBACK_RATES = [1, 1.5, 2, 2.5, 3] as const
@@ -11,9 +12,11 @@ interface PlaybackControlsProps {
   isLoaded: boolean
   isPlaying: boolean
   playbackRate: number
+  toolMode: TranscriptToolMode
   onSeek: (time: number) => void
   onTogglePlayback: () => void
   onPlaybackRateChange: (rate: number) => void
+  onToolModeChange: (mode: TranscriptToolMode) => void
 }
 
 export function PlaybackControls({
@@ -22,9 +25,11 @@ export function PlaybackControls({
   isLoaded,
   isPlaying,
   playbackRate,
+  toolMode,
   onSeek,
   onTogglePlayback,
   onPlaybackRateChange,
+  onToolModeChange,
 }: PlaybackControlsProps) {
   const [isDragging, setIsDragging] = useState(false)
   const progressBarRef = useRef<HTMLDivElement>(null)
@@ -101,26 +106,51 @@ export function PlaybackControls({
         )}
       </div>
       {/* Controls */}
-      <div className="flex items-center justify-center gap-4 border-t p-4">
-        <span className="text-sm text-muted-foreground">{formatTime(currentTime)}</span>
-        <Button
-          size="lg"
-          className="rounded-full"
-          onClick={onTogglePlayback}
-          disabled={!isLoaded}
-        >
-          {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-        </Button>
-        <span className="text-sm text-muted-foreground">{formatTime(duration)}</span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={cyclePlaybackRate}
-          disabled={!isLoaded}
-          className="min-w-[3.5rem] font-mono"
-        >
-          {playbackRate}x
-        </Button>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center border-t p-4">
+        <div className="flex justify-start">
+          <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+            <Button
+              variant={toolMode === 'pointer' ? 'secondary' : 'ghost'}
+              size="icon-sm"
+              onClick={() => onToolModeChange('pointer')}
+              aria-pressed={toolMode === 'pointer'}
+              title="Pointer tool"
+            >
+              <MousePointer2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={toolMode === 'select' ? 'secondary' : 'ghost'}
+              size="icon-sm"
+              onClick={() => onToolModeChange('select')}
+              aria-pressed={toolMode === 'select'}
+              title="Select text tool"
+            >
+              <TextSelect className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center justify-center gap-4">
+          <span className="text-sm text-muted-foreground">{formatTime(currentTime)}</span>
+          <Button
+            size="lg"
+            className="rounded-full"
+            onClick={onTogglePlayback}
+            disabled={!isLoaded}
+          >
+            {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+          </Button>
+          <span className="text-sm text-muted-foreground">{formatTime(duration)}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={cyclePlaybackRate}
+            disabled={!isLoaded}
+            className="min-w-[3.5rem] font-mono"
+          >
+            {playbackRate}x
+          </Button>
+        </div>
+        <div />
       </div>
     </div>
   )
