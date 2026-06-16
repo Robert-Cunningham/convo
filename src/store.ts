@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
+import { createId } from './lib/id'
 import { getTranscript } from './lib/storage'
 import type { Project, SelectedItem, Snippet, TranscriptSegment } from './types'
 
@@ -136,7 +137,7 @@ export const selectTemporarySnippet = (data: { text: string; startTime: number; 
   useAppStore.getState().mutate((s) => {
     s.selectedItem = {
       type: 'segment', // Use 'segment' type so "Save to Project" button appears
-      id: crypto.randomUUID(),
+      id: createId(),
       text: data.text,
       startTime: data.startTime,
       endTime: data.endTime,

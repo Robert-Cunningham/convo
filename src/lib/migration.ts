@@ -1,3 +1,4 @@
+import { createId } from './id'
 import { saveTranscript } from './storage'
 import { useAppStore, cacheTranscript } from '../store'
 
@@ -20,7 +21,7 @@ export async function migrateTranscriptsToIndexedDB(): Promise<void> {
 
   for (const project of projectsNeedingMigration) {
     try {
-      const transcriptId = crypto.randomUUID()
+      const transcriptId = createId()
 
       // Save to IndexedDB
       await saveTranscript(transcriptId, project.id, project.transcript!)

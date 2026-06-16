@@ -1,3 +1,4 @@
+import { createId } from './id'
 import type { TranscriptSegment, TranscriptWord } from '../types'
 
 interface ScribeWord {
@@ -64,7 +65,7 @@ function transformScribeResponse(response: ScribeResponse): TranscriptSegment[] 
       }
       currentWords = [transcriptWord]
       currentSegment = {
-        id: crypto.randomUUID(),
+        id: createId(),
         speaker: word.speaker_id,
         text: word.text,
         words: currentWords,

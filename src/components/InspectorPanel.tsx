@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Save, Loader2 } from 'lucide-react'
 import { useSnippetAudio } from '@/hooks/useSnippetAudio'
+import { createId } from '@/lib/id'
 
 export function InspectorPanel() {
   const selectedItem = useAppStore((state) => state.selectedItem)
@@ -33,7 +34,7 @@ export function InspectorPanel() {
     if (!selectedItem) return
 
     const snippet = {
-      id: crypto.randomUUID(),
+      id: createId(),
       name: `Snippet ${snippets.length + 1}`,
       text: selectedItem.text ?? '',
       startTime: selectedItem.startTime,

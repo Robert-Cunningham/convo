@@ -1,5 +1,6 @@
 import type { Project } from './types'
 import { useAppStore, cacheTranscript, clearTranscriptCache, startTranscription, endTranscription } from './store'
+import { createId } from './lib/id'
 import { saveAudioFile, loadApiKey, deleteAudioFile, getAudioFile, saveTranscript, deleteTranscript } from './lib/storage'
 import { transcribeAudio } from './lib/elevenlabs'
 
@@ -80,7 +81,7 @@ export const createProjectsFromFiles = async (files: File[]) => {
   store.mutate((s) => {
     for (const file of validFiles) {
       const project: Project = {
-        id: crypto.randomUUID(),
+        id: createId(),
         name: file.name.replace(/\.[^/.]+$/, ''),
         audioFileName: file.name,
         audioFileId: '',
@@ -115,7 +116,7 @@ export const createProjectsFromFiles = async (files: File[]) => {
 
     try {
       // Save audio file FIRST so retry is possible even if transcription fails.
-      const audioFileId = crypto.randomUUID()
+      const audioFileId = createId()
       await saveAudioFile(audioFileId, file)
       updateProject(project.id, { audioFileId })
 
@@ -123,7 +124,7 @@ export const createProjectsFromFiles = async (files: File[]) => {
       const transcript = await transcribeAudio(file, apiKey)
 
       // Save transcript to IndexedDB
-      const transcriptId = crypto.randomUUID()
+      const transcriptId = createId()
       await saveTranscript(transcriptId, project.id, transcript)
 
       // Update project with reference (not inline data)
@@ -187,7 +188,7 @@ export const retryProject = async (projectId: string) => {
     const transcript = await transcribeAudio(audioFile, apiKey)
 
     // Save transcript to IndexedDB
-    const transcriptId = crypto.randomUUID()
+    const transcriptId = createId()
     await saveTranscript(transcriptId, projectId, transcript)
 
     // Update project with reference
