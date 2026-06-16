@@ -22,6 +22,8 @@ export function useSnippetAudio(options: UseSnippetAudioOptions): UseSnippetAudi
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const audioUrlRef = useRef<string | null>(null)
+  const generationIdRef = useRef(0)
+  const decodedAudioRef = useRef<{ audioFileId: string; buffer: AudioBuffer } | null>(null)
 
   // Clean up blob URL on unmount
   useEffect(() => {
@@ -34,16 +36,43 @@ export function useSnippetAudio(options: UseSnippetAudioOptions): UseSnippetAudi
   }, [])
 
   const reset = useCallback(() => {
+    generationIdRef.current += 1
     if (audioUrlRef.current) {
       URL.revokeObjectURL(audioUrlRef.current)
       audioUrlRef.current = null
     }
     setAudioUrl(null)
     setError(null)
+    setIsGenerating(false)
+  }, [])
+
+  const decodeAudioBuffer = useCallback(async (id: string): Promise<AudioBuffer> => {
+    const cached = decodedAudioRef.current
+    if (cached?.audioFileId === id) {
+      return cached.buffer
+    }
+
+    const audioFile = await getAudioFile(id)
+    if (!audioFile) {
+      throw new Error('Audio file not found')
+    }
+
+    const arrayBuffer = await audioFile.arrayBuffer()
+    const audioContext = new AudioContext()
+
+    try {
+      return await audioContext.decodeAudioData(arrayBuffer)
+    } finally {
+      await audioContext.close()
+    }
   }, [])
 
   const generate = useCallback(async () => {
+    const generationId = generationIdRef.current + 1
+    generationIdRef.current = generationId
+
     if (!audioFileId) {
+      setIsGenerating(false)
       setError('No audio file available')
       return
     }
@@ -52,38 +81,28 @@ export function useSnippetAudio(options: UseSnippetAudioOptions): UseSnippetAudi
     setError(null)
 
     try {
-      // Get the audio file from IndexedDB
-      const audioFile = await getAudioFile(audioFileId)
-      if (!audioFile) {
-        throw new Error('Audio file not found')
-      }
-
-      // Decode the audio file
-      const arrayBuffer = await audioFile.arrayBuffer()
-      const audioContext = new AudioContext()
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+      const audioBuffer = await decodeAudioBuffer(audioFileId)
+      if (generationId !== generationIdRef.current) return
+      decodedAudioRef.current = { audioFileId, buffer: audioBuffer }
 
       // Calculate sample positions
       const sampleRate = audioBuffer.sampleRate
-      const startSample = Math.floor(startTime * sampleRate)
-      const endSample = Math.floor(endTime * sampleRate)
-      const numSamples = endSample - startSample
-      const numChannels = audioBuffer.numberOfChannels
+      const startSample = Math.max(
+        0,
+        Math.min(Math.floor(startTime * sampleRate), audioBuffer.length)
+      )
+      const endSample = Math.max(
+        startSample,
+        Math.min(Math.ceil(endTime * sampleRate), audioBuffer.length)
+      )
 
-      // Create a new buffer for the slice
-      const slicedBuffer = audioContext.createBuffer(numChannels, numSamples, sampleRate)
-
-      // Copy the data
-      for (let channel = 0; channel < numChannels; channel++) {
-        const sourceData = audioBuffer.getChannelData(channel)
-        const targetData = slicedBuffer.getChannelData(channel)
-        for (let i = 0; i < numSamples; i++) {
-          targetData[i] = sourceData[startSample + i]
-        }
+      if (endSample <= startSample) {
+        throw new Error('Selected audio range is empty')
       }
 
       // Encode to WAV
-      const wavBlob = audioBufferToWav(slicedBuffer)
+      const wavBlob = audioBufferRangeToWav(audioBuffer, startSample, endSample)
+      if (generationId !== generationIdRef.current) return
 
       // Clean up old URL if exists
       if (audioUrlRef.current) {
@@ -94,15 +113,17 @@ export function useSnippetAudio(options: UseSnippetAudioOptions): UseSnippetAudi
       const url = URL.createObjectURL(wavBlob)
       audioUrlRef.current = url
       setAudioUrl(url)
-
-      await audioContext.close()
     } catch (err) {
       console.error('Failed to generate audio:', err)
-      setError(err instanceof Error ? err.message : 'Failed to generate audio')
+      if (generationId === generationIdRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to generate audio')
+      }
     } finally {
-      setIsGenerating(false)
+      if (generationId === generationIdRef.current) {
+        setIsGenerating(false)
+      }
     }
-  }, [audioFileId, startTime, endTime])
+  }, [audioFileId, startTime, endTime, decodeAudioBuffer])
 
   return {
     audioUrl,
@@ -113,28 +134,23 @@ export function useSnippetAudio(options: UseSnippetAudioOptions): UseSnippetAudi
   }
 }
 
-// Convert AudioBuffer to WAV format
-function audioBufferToWav(buffer: AudioBuffer): Blob {
+// Convert a range of an AudioBuffer to WAV format
+function audioBufferRangeToWav(
+  buffer: AudioBuffer,
+  startSample: number,
+  endSample: number
+): Blob {
   const numChannels = buffer.numberOfChannels
   const sampleRate = buffer.sampleRate
+  const sampleCount = endSample - startSample
   const format = 1 // PCM
   const bitDepth = 16
 
   const bytesPerSample = bitDepth / 8
   const blockAlign = numChannels * bytesPerSample
 
-  // Interleave channels
-  const length = buffer.length * numChannels
-  const interleaved = new Float32Array(length)
-
-  for (let i = 0; i < buffer.length; i++) {
-    for (let channel = 0; channel < numChannels; channel++) {
-      interleaved[i * numChannels + channel] = buffer.getChannelData(channel)[i]
-    }
-  }
-
   // Create WAV file
-  const dataLength = length * bytesPerSample
+  const dataLength = sampleCount * numChannels * bytesPerSample
   const bufferLength = 44 + dataLength
   const arrayBuffer = new ArrayBuffer(bufferLength)
   const view = new DataView(arrayBuffer)
@@ -155,11 +171,14 @@ function audioBufferToWav(buffer: AudioBuffer): Blob {
   view.setUint32(40, dataLength, true)
 
   // Write audio data
-  const offset = 44
-  for (let i = 0; i < interleaved.length; i++) {
-    const sample = Math.max(-1, Math.min(1, interleaved[i]))
-    const value = sample < 0 ? sample * 0x8000 : sample * 0x7fff
-    view.setInt16(offset + i * 2, value, true)
+  let offset = 44
+  for (let i = startSample; i < endSample; i++) {
+    for (let channel = 0; channel < numChannels; channel++) {
+      const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]))
+      const value = sample < 0 ? sample * 0x8000 : sample * 0x7fff
+      view.setInt16(offset, value, true)
+      offset += bytesPerSample
+    }
   }
 
   return new Blob([arrayBuffer], { type: 'audio/wav' })

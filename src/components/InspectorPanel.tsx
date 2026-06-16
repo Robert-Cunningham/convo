@@ -25,9 +25,9 @@ export function InspectorPanel() {
   useEffect(() => {
     reset()
     if (selectedItem) {
-      generate()
+      void generate()
     }
-  }, [selectedItem?.id, reset, generate])
+  }, [selectedItem, reset, generate])
 
   const handleSaveSnippet = () => {
     if (!selectedItem) return
