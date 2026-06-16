@@ -1,4 +1,5 @@
 import { enableMapSet, produce } from 'immer'
+import { useEffect } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
@@ -219,6 +220,7 @@ export const useTranscript = () => {
   const project = useAppStore((s) =>
     s.selectedProjectId ? s.projects.find((p) => p.id === s.selectedProjectId) : null
   )
+  const transcriptId = project?.transcriptId
   const cachedTranscript = useAppStore((s) =>
     selectedProjectId ? s.transcriptCache.get(selectedProjectId) : undefined
   )
@@ -227,9 +229,11 @@ export const useTranscript = () => {
   )
 
   // Trigger load from IndexedDB if needed
-  if (selectedProjectId && project?.transcriptId && !cachedTranscript && !isLoading) {
-    loadTranscriptForProject(selectedProjectId)
-  }
+  useEffect(() => {
+    if (selectedProjectId && transcriptId && !cachedTranscript && !isLoading) {
+      void loadTranscriptForProject(selectedProjectId)
+    }
+  }, [selectedProjectId, transcriptId, cachedTranscript, isLoading])
 
   // Return cached transcript, legacy inline transcript, or empty array
   return cachedTranscript ?? project?.transcript ?? []
