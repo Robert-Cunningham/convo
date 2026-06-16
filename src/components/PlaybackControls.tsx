@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { formatTime } from '@/lib/time'
 import type { TranscriptToolMode } from '@/types'
-import { MousePointer2, Pause, Play, TextSelect } from 'lucide-react'
+import { Download, MousePointer2, Pause, Play, TextSelect, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 const PLAYBACK_RATES = [1, 1.5, 2, 2.5, 3] as const
@@ -13,10 +13,13 @@ interface PlaybackControlsProps {
   isPlaying: boolean
   playbackRate: number
   toolMode: TranscriptToolMode
+  hasSelection: boolean
   onSeek: (time: number) => void
   onTogglePlayback: () => void
   onPlaybackRateChange: (rate: number) => void
   onToolModeChange: (mode: TranscriptToolMode) => void
+  onClearSelection: () => void
+  onExportProject: () => void
 }
 
 export function PlaybackControls({
@@ -26,10 +29,13 @@ export function PlaybackControls({
   isPlaying,
   playbackRate,
   toolMode,
+  hasSelection,
   onSeek,
   onTogglePlayback,
   onPlaybackRateChange,
   onToolModeChange,
+  onClearSelection,
+  onExportProject,
 }: PlaybackControlsProps) {
   const [isDragging, setIsDragging] = useState(false)
   const progressBarRef = useRef<HTMLDivElement>(null)
@@ -108,24 +114,35 @@ export function PlaybackControls({
       {/* Controls */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center border-t p-4">
         <div className="flex justify-start">
-          <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+              <Button
+                variant={toolMode === 'pointer' ? 'secondary' : 'ghost'}
+                size="icon-sm"
+                onClick={() => onToolModeChange('pointer')}
+                aria-pressed={toolMode === 'pointer'}
+                title="Pointer tool"
+              >
+                <MousePointer2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={toolMode === 'select' ? 'secondary' : 'ghost'}
+                size="icon-sm"
+                onClick={() => onToolModeChange('select')}
+                aria-pressed={toolMode === 'select'}
+                title="Select text tool"
+              >
+                <TextSelect className="h-4 w-4" />
+              </Button>
+            </div>
             <Button
-              variant={toolMode === 'pointer' ? 'secondary' : 'ghost'}
+              variant="ghost"
               size="icon-sm"
-              onClick={() => onToolModeChange('pointer')}
-              aria-pressed={toolMode === 'pointer'}
-              title="Pointer tool"
+              onClick={onClearSelection}
+              disabled={!hasSelection}
+              title="Clear selection"
             >
-              <MousePointer2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={toolMode === 'select' ? 'secondary' : 'ghost'}
-              size="icon-sm"
-              onClick={() => onToolModeChange('select')}
-              aria-pressed={toolMode === 'select'}
-              title="Select text tool"
-            >
-              <TextSelect className="h-4 w-4" />
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -150,7 +167,12 @@ export function PlaybackControls({
             {playbackRate}x
           </Button>
         </div>
-        <div />
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={onExportProject}>
+            <Download className="h-4 w-4" />
+            Export
+          </Button>
+        </div>
       </div>
     </div>
   )

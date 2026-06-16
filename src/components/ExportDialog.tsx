@@ -40,12 +40,22 @@ export function ExportDialog({
   const handleCopy = async () => {
     if (projects.length === 0) return
 
-    const text = await exportProjectsToText(projects, options)
-    await navigator.clipboard.writeText(text)
+    if (!navigator.clipboard?.writeText) {
+      toast.error('Clipboard unavailable. Use HTTPS, localhost, or Download instead.')
+      return
+    }
 
-    onOpenChange(false)
-    onExportComplete?.()
-    toast.success('Copied to clipboard')
+    try {
+      const text = await exportProjectsToText(projects, options)
+      await navigator.clipboard.writeText(text)
+
+      onOpenChange(false)
+      onExportComplete?.()
+      toast.success('Copied to clipboard')
+    } catch (error) {
+      console.error('Failed to copy export:', error)
+      toast.error('Clipboard unavailable. Use Download instead.')
+    }
   }
 
   const handleDownload = async () => {

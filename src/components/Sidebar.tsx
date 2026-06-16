@@ -33,7 +33,15 @@ import { SettingsDialog } from './SettingsDialog'
 
 type SortOption = 'name-asc' | 'name-desc' | 'date-new' | 'date-old'
 
-export function Sidebar() {
+interface SidebarProps {
+  isCollapsed?: boolean
+  onToggleCollapsed?: () => void
+}
+
+export function Sidebar({
+  isCollapsed = false,
+  onToggleCollapsed,
+}: SidebarProps) {
   const projects = useAppStore((state) => state.projects)
   const selectedProjectId = useAppStore((state) => state.selectedProjectId)
   const isMultiSelectMode = useAppStore((state) => state.isMultiSelectMode)
@@ -155,12 +163,68 @@ export function Sidebar() {
         projects={projectsToExport}
         onExportComplete={exitMultiSelectMode}
       />
+      {isCollapsed ? (
+        <div className="flex h-full flex-col items-center border-r bg-muted/40">
+          <div className="w-full p-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-full"
+              onClick={onToggleCollapsed}
+              aria-label="Expand sidebar"
+              title="Expand sidebar"
+            >
+              <MessageSquareText className="h-5 w-5 text-primary" />
+            </Button>
+          </div>
+
+          <Separator />
+
+          <div className="w-full p-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-full"
+              onClick={handleNewProject}
+              aria-label="New project"
+              title="New project"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="flex-1" />
+
+          <Separator />
+
+          <div className="w-full p-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-full"
+              onClick={handleOpenSettings}
+              aria-label="Settings"
+              title="Settings"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      ) : (
     <div className="flex h-full flex-col border-r bg-muted/40">
       {/* Logo/Header */}
-      <div className="flex items-center gap-2 p-4">
-        <MessageSquareText className="h-5 w-5 text-primary" />
-        <h1 className="text-base font-semibold">convo cruncher</h1>
-        <span className="text-xs text-muted-foreground/60">v1</span>
+      <div className="p-4">
+        <button
+          type="button"
+          className="flex min-w-0 items-center gap-2 rounded-md transition-colors hover:bg-accent"
+          onClick={onToggleCollapsed}
+          aria-label="Collapse sidebar"
+          title="Collapse sidebar"
+        >
+          <MessageSquareText className="h-5 w-5 flex-shrink-0 text-primary" />
+          <h1 className="truncate text-base font-semibold">convo cruncher</h1>
+          <span className="text-xs text-muted-foreground/60">v1</span>
+        </button>
       </div>
 
       <Separator />
@@ -378,6 +442,7 @@ export function Sidebar() {
         </Button>
       </div>
     </div>
+      )}
     </>
   )
 }

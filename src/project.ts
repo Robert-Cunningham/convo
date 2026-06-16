@@ -4,8 +4,6 @@ import { createId } from './lib/id'
 import { saveAudioFile, loadApiKey, deleteAudioFile, getAudioFile, saveTranscript, deleteTranscript } from './lib/storage'
 import { transcribeAudio } from './lib/elevenlabs'
 
-const MAX_CONCURRENT_TRANSCRIPTIONS = 2
-
 // Check if a file with the same audioFileName already exists
 export const isDuplicateFile = (fileName: string): boolean => {
   const projects = useAppStore.getState().projects
@@ -146,19 +144,7 @@ export const createProjectsFromFiles = async (files: File[]) => {
     }
   }
 
-  // Keep browser memory and API pressure bounded for batch imports.
-  const queue = [...projectsToProcess]
-  const workerCount = Math.min(MAX_CONCURRENT_TRANSCRIPTIONS, queue.length)
-  await Promise.allSettled(
-    Array.from({ length: workerCount }, async () => {
-      while (queue.length > 0) {
-        const item = queue.shift()
-        if (item) {
-          await processProjectFile(item)
-        }
-      }
-    })
-  )
+  await Promise.allSettled(projectsToProcess.map(processProjectFile))
 }
 
 // Retry a failed or interrupted project transcription

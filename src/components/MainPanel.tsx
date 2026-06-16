@@ -11,6 +11,7 @@ import { retryProject } from '@/project'
 import type { TranscriptToolMode, TranscriptWord } from '@/types'
 import { AlertCircle, FileAudio, RefreshCw, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ExportDialog } from './ExportDialog'
 import { PlaybackControls } from './PlaybackControls'
 import { SpeakersPanel } from './SpeakersPanel'
 
@@ -44,6 +45,8 @@ export function MainPanel() {
   const transcript = useTranscript()
   const snippets = useSnippets()
   const isPlaying = useAppStore((state) => state.isPlaying)
+  const selectedItem = useAppStore((state) => state.selectedItem)
+  const clearSelection = useAppStore((state) => state.clearSelection)
   const togglePlayback = useAppStore((state) => state.togglePlayback)
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
@@ -54,6 +57,7 @@ export function MainPanel() {
     createEmptySelection(selectedProjectId)
   )
   const [toolMode, setToolMode] = useState<TranscriptToolMode>('pointer')
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const isSelectionMode = toolMode === 'select'
   const activeSelection = selection.projectId === selectedProjectId
     ? selection
@@ -234,9 +238,20 @@ export function MainPanel() {
     }
   }, [isSelecting, selectedProjectId])
 
+  const handleClearSelection = useCallback(() => {
+    setSelection(createEmptySelection(selectedProjectId))
+    clearSelection()
+  }, [clearSelection, selectedProjectId])
+
+  const handleExportProject = useCallback(() => {
+    setExportDialogOpen(true)
+  }, [setExportDialogOpen])
+
   const handleOpenProjectSettings = () => {
     console.log('Open project settings')
   }
+
+  const hasSelection = Boolean(selectedItem || selectionStart)
 
   if (!selectedProject) {
     return (
@@ -309,7 +324,13 @@ export function MainPanel() {
   }
 
   return (
-    <Tabs defaultValue="transcript" className="relative flex h-full flex-col bg-background">
+    <>
+      <ExportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        projects={[selectedProject]}
+      />
+      <Tabs defaultValue="transcript" className="relative flex h-full flex-col bg-background">
       {/* Header - Sticky Top with Tabs */}
       <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-4 py-2">
         <div className="flex items-center gap-2">
@@ -387,9 +408,9 @@ export function MainPanel() {
                                     ? 'bg-yellow-200 dark:bg-yellow-800'
                                     : isActive
                                       ? 'bg-muted text-foreground'
-                                    : isSelectionMode
-                                      ? 'hover:bg-yellow-100 dark:hover:bg-yellow-900/70'
-                                      : 'hover:bg-muted'
+                                      : isSelectionMode
+                                        ? 'hover:bg-yellow-100 dark:hover:bg-yellow-900/70'
+                                        : 'hover:bg-muted'
                                 }`}
                               >
                                 {word.text}
@@ -453,11 +474,15 @@ export function MainPanel() {
         isPlaying={isPlaying}
         playbackRate={playbackRate}
         toolMode={toolMode}
+        hasSelection={hasSelection}
         onSeek={seek}
         onTogglePlayback={togglePlayback}
         onPlaybackRateChange={setPlaybackRate}
         onToolModeChange={handleToolModeChange}
+        onClearSelection={handleClearSelection}
+        onExportProject={handleExportProject}
       />
-    </Tabs>
+      </Tabs>
+    </>
   )
 }

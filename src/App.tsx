@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
+import type { ImperativePanelHandle } from 'react-resizable-panels'
 import { InspectorPanel } from '@/components/InspectorPanel'
 import { MainPanel } from '@/components/MainPanel'
 import { SearchDialog } from '@/components/SearchDialog'
@@ -11,9 +12,13 @@ import {
 } from '@/components/ui/resizable'
 import { Toaster } from '@/components/ui/sonner'
 import { migrateTranscriptsToIndexedDB } from '@/lib/migration'
+import { useAppStore } from '@/store'
 
 function App() {
   const [searchOpen, setSearchOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const sidebarPanelRef = useRef<ImperativePanelHandle>(null)
+  const selectedItem = useAppStore((state) => state.selectedItem)
 
   // Global search hotkey (Ctrl+F / Cmd+F)
   useHotkeys('ctrl+f, meta+f', () => setSearchOpen(true), { preventDefault: true })
@@ -23,24 +28,50 @@ function App() {
     migrateTranscriptsToIndexedDB().catch(console.error)
   }, [])
 
+  const handleToggleSidebar = () => {
+    if (isSidebarCollapsed) {
+      sidebarPanelRef.current?.expand()
+      setIsSidebarCollapsed(false)
+    } else {
+      sidebarPanelRef.current?.collapse()
+      setIsSidebarCollapsed(true)
+    }
+  }
+
   return (
     <div className="h-screen bg-background">
       <ResizablePanelGroup direction="horizontal">
-        <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-          <Sidebar />
+        <ResizablePanel
+          ref={sidebarPanelRef}
+          defaultSize={20}
+          minSize={15}
+          maxSize={30}
+          collapsible
+          collapsedSize={5}
+          onCollapse={() => setIsSidebarCollapsed(true)}
+          onExpand={() => setIsSidebarCollapsed(false)}
+        >
+          <Sidebar
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapsed={handleToggleSidebar}
+          />
         </ResizablePanel>
 
         <ResizableHandle withHandle />
 
-        <ResizablePanel defaultSize={55} minSize={30}>
+        <ResizablePanel defaultSize={selectedItem ? 55 : 80} minSize={30}>
           <MainPanel />
         </ResizablePanel>
 
-        <ResizableHandle withHandle />
+        {selectedItem && (
+          <>
+            <ResizableHandle withHandle />
 
-        <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
-          <InspectorPanel />
-        </ResizablePanel>
+            <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
+              <InspectorPanel />
+            </ResizablePanel>
+          </>
+        )}
       </ResizablePanelGroup>
       <Toaster />
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
