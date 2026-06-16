@@ -110,15 +110,15 @@ export const createProjectsFromFiles = async (files: File[]) => {
   // Process all files in parallel
   await Promise.allSettled(
     projectsToProcess.map(async ({ project, file }) => {
-      // Save audio file FIRST so retry is possible even if transcription fails
-      const audioFileId = crypto.randomUUID()
-      await saveAudioFile(audioFileId, file)
-      updateProject(project.id, { audioFileId })
-
-      // Mark as actively transcribing (distinguishes from interrupted state)
+      // Mark as actively processing so reloads can distinguish interrupted work.
       startTranscription(project.id)
 
       try {
+        // Save audio file FIRST so retry is possible even if transcription fails.
+        const audioFileId = crypto.randomUUID()
+        await saveAudioFile(audioFileId, file)
+        updateProject(project.id, { audioFileId })
+
         // Transcribe the audio
         const transcript = await transcribeAudio(file, apiKey)
 
