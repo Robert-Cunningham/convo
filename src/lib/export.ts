@@ -1,8 +1,30 @@
 import type { Project, TranscriptSegment } from '../types'
 import { getTranscript } from './storage'
 
+export type ExportFormat = 'markdown' | 'jsonl' | 'yaml'
+
 export interface ExportOptions {
   includeTimestamps?: boolean
+  format?: ExportFormat
+}
+
+interface StructuredTranscriptLine {
+  start?: number
+  end?: number
+  speaker: string
+  text: string
+}
+
+const exportExtensions: Record<ExportFormat, string> = {
+  markdown: 'md',
+  jsonl: 'jsonl',
+  yaml: 'yaml',
+}
+
+const exportMimeTypes: Record<ExportFormat, string> = {
+  markdown: 'text/markdown;charset=utf-8',
+  jsonl: 'application/x-ndjson;charset=utf-8',
+  yaml: 'application/x-yaml;charset=utf-8',
 }
 
 /**
@@ -54,6 +76,14 @@ function normalizeWhitespace(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
 }
 
+function getExportFormat(options: ExportOptions): ExportFormat {
+  return options.format ?? 'markdown'
+}
+
+function getExportExtension(format: ExportFormat): string {
+  return exportExtensions[format]
+}
+
 /**
  * Formats a date as a readable string
  */
@@ -101,6 +131,106 @@ export async function exportProjectToMarkdown(
   return header + transcript
 }
 
+function toStructuredTranscriptLine(
+  segment: TranscriptSegment,
+  speakerMap: Record<string, string>,
+  includeTimestamps: boolean
+): StructuredTranscriptLine {
+  const speaker = getSpeakerDisplayName(segment.speaker, speakerMap)
+  const text = normalizeWhitespace(segment.text)
+
+  if (includeTimestamps) {
+    return {
+      start: segment.startTime,
+      end: segment.endTime,
+      speaker,
+      text,
+    }
+  }
+
+  return {
+    speaker,
+    text,
+  }
+}
+
+async function exportProjectToStructuredLines(
+  project: Project,
+  options: ExportOptions = {}
+): Promise<StructuredTranscriptLine[]> {
+  const { includeTimestamps = true } = options
+  const segments = await getProjectTranscript(project)
+  return segments.map((segment) =>
+    toStructuredTranscriptLine(segment, project.speakerMap ?? {}, includeTimestamps)
+  )
+}
+
+/**
+ * Exports a single project's transcript to JSON Lines format.
+ */
+export async function exportProjectToJsonLines(
+  project: Project,
+  options: ExportOptions = {}
+): Promise<string> {
+  const lines = await exportProjectToStructuredLines(project, options)
+  return lines.map((line) => JSON.stringify(line)).join('\n')
+}
+
+function formatYamlValue(value: number | string): string {
+  if (typeof value === 'number') {
+    return String(value)
+  }
+
+  return JSON.stringify(value)
+}
+
+function exportLinesToYaml(lines: StructuredTranscriptLine[]): string {
+  if (lines.length === 0) {
+    return '[]'
+  }
+
+  return lines
+    .map((line) =>
+      Object.entries(line)
+        .map(([key, value], index) => {
+          const prefix = index === 0 ? '- ' : '  '
+          return `${prefix}${key}: ${formatYamlValue(value)}`
+        })
+        .join('\n')
+    )
+    .join('\n')
+}
+
+/**
+ * Exports a single project's transcript to YAML format.
+ */
+export async function exportProjectToYaml(
+  project: Project,
+  options: ExportOptions = {}
+): Promise<string> {
+  const lines = await exportProjectToStructuredLines(project, options)
+  return exportLinesToYaml(lines)
+}
+
+/**
+ * Exports a single project's transcript in the requested format.
+ */
+export async function exportProjectToFormat(
+  project: Project,
+  options: ExportOptions = {}
+): Promise<string> {
+  const format = getExportFormat(options)
+
+  switch (format) {
+    case 'jsonl':
+      return exportProjectToJsonLines(project, options)
+    case 'yaml':
+      return exportProjectToYaml(project, options)
+    case 'markdown':
+      return exportProjectToMarkdown(project, options)
+  }
+}
+
 /**
  * Sanitizes a filename by removing/replacing invalid characters
  */
@@ -117,11 +247,18 @@ export function sanitizeFilename(name: string): string {
  * Triggers a browser download for a single markdown file
  */
 export function downloadMarkdown(content: string, filename: string): void {
-  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
+  downloadExport(content, filename, 'markdown')
+}
+
+/**
+ * Triggers a browser download for a single exported file
+ */
+export function downloadExport(content: string, filename: string, format: ExportFormat): void {
+  const blob = new Blob([content], { type: exportMimeTypes[format] })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `${sanitizeFilename(filename)}.md`
+  link.download = `${sanitizeFilename(filename)}.${getExportExtension(format)}`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -150,14 +287,24 @@ export async function exportProjectsToText(
   projects: Project[],
   options: ExportOptions = {}
 ): Promise<string> {
-  const markdowns = await Promise.all(
-    projects.map((project) => exportProjectToMarkdown(project, options))
+  const format = getExportFormat(options)
+  const exports = await Promise.all(
+    projects.map((project) => exportProjectToFormat(project, options))
   )
-  return markdowns.join('\n\n---\n\n')
+
+  if (format === 'markdown') {
+    return exports.join('\n\n---\n\n')
+  }
+
+  if (format === 'yaml') {
+    return exports.join('\n---\n')
+  }
+
+  return exports.filter(Boolean).join('\n')
 }
 
 /**
- * Exports multiple projects as a ZIP file containing .md files
+ * Exports multiple projects as a ZIP file containing one file per project.
  */
 export async function exportProjectsAsZip(
   projects: Project[],
@@ -167,11 +314,13 @@ export async function exportProjectsAsZip(
 
   const zip = new JSZip()
   const usedFilenames = new Set<string>()
+  const format = getExportFormat(options)
+  const extension = getExportExtension(format)
 
   for (const project of projects) {
-    const markdown = await exportProjectToMarkdown(project, options)
+    const content = await exportProjectToFormat(project, options)
     const filename = getUniqueFilename(project.name, usedFilenames)
-    zip.file(`${filename}.md`, markdown)
+    zip.file(`${filename}.${extension}`, content)
   }
 
   const blob = await zip.generateAsync({ type: 'blob' })

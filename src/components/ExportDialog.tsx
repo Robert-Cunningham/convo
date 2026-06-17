@@ -11,10 +11,11 @@ import {
 } from './ui/dialog'
 import { Label } from './ui/label'
 import {
-  downloadMarkdown,
+  downloadExport,
   exportProjectsAsZip,
   exportProjectsToText,
-  exportProjectToMarkdown,
+  exportProjectToFormat,
+  type ExportFormat,
   type ExportOptions,
 } from '@/lib/export'
 import type { Project } from '@/types'
@@ -34,8 +35,9 @@ export function ExportDialog({
   onExportComplete,
 }: ExportDialogProps) {
   const [includeTimestamps, setIncludeTimestamps] = useState(true)
+  const [format, setFormat] = useState<ExportFormat>('markdown')
 
-  const options: ExportOptions = { includeTimestamps }
+  const options: ExportOptions = { includeTimestamps, format }
 
   const handleCopy = async () => {
     if (projects.length === 0) return
@@ -63,8 +65,8 @@ export function ExportDialog({
 
     if (projects.length === 1) {
       const project = projects[0]
-      const markdown = await exportProjectToMarkdown(project, options)
-      downloadMarkdown(markdown, project.name)
+      const content = await exportProjectToFormat(project, options)
+      downloadExport(content, project.name, format)
     } else {
       await exportProjectsAsZip(projects, options)
     }
@@ -79,7 +81,20 @@ export function ExportDialog({
         <DialogHeader>
           <DialogTitle>Export Options</DialogTitle>
         </DialogHeader>
-        <div className="py-4">
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="export-format">Format</Label>
+            <select
+              id="export-format"
+              value={format}
+              onChange={(event) => setFormat(event.target.value as ExportFormat)}
+              className="border-input bg-background ring-offset-background focus:ring-ring h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus:ring-2 focus:ring-offset-2"
+            >
+              <option value="markdown">Markdown</option>
+              <option value="jsonl">JSON Lines</option>
+              <option value="yaml">YAML</option>
+            </select>
+          </div>
           <div className="flex items-center space-x-2">
             <Checkbox
               id="include-timestamps"
