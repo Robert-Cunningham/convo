@@ -35,9 +35,10 @@ export function ExportDialog({
   onExportComplete,
 }: ExportDialogProps) {
   const [includeTimestamps, setIncludeTimestamps] = useState(true)
+  const [includeAudio, setIncludeAudio] = useState(false)
   const [format, setFormat] = useState<ExportFormat>('markdown')
 
-  const options: ExportOptions = { includeTimestamps, format }
+  const options: ExportOptions = { includeTimestamps, format, includeAudio }
 
   const handleCopy = async () => {
     if (projects.length === 0) return
@@ -63,7 +64,7 @@ export function ExportDialog({
   const handleDownload = async () => {
     if (projects.length === 0) return
 
-    if (projects.length === 1) {
+    if (projects.length === 1 && !includeAudio) {
       const project = projects[0]
       const content = await exportProjectToFormat(project, options)
       downloadExport(content, project.name, format)
@@ -102,6 +103,14 @@ export function ExportDialog({
               onCheckedChange={(checked) => setIncludeTimestamps(checked === true)}
             />
             <Label htmlFor="include-timestamps">Include timestamps</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="include-audio"
+              checked={includeAudio}
+              onCheckedChange={(checked) => setIncludeAudio(checked === true)}
+            />
+            <Label htmlFor="include-audio">Include audio in download ZIP</Label>
           </div>
         </div>
         <DialogFooter>

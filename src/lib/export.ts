@@ -1,11 +1,13 @@
+import type JSZip from 'jszip'
 import type { Project, TranscriptSegment } from '../types'
-import { getTranscript } from './storage'
+import { getAudioFile, getTranscript } from './storage'
 
 export type ExportFormat = 'markdown' | 'jsonl' | 'yaml'
 
 export interface ExportOptions {
   includeTimestamps?: boolean
   format?: ExportFormat
+  includeAudio?: boolean
 }
 
 interface StructuredTranscriptLine {
@@ -82,6 +84,16 @@ function getExportFormat(options: ExportOptions): ExportFormat {
 
 function getExportExtension(format: ExportFormat): string {
   return exportExtensions[format]
+}
+
+function appendFilenameCounter(filename: string, counter: number): string {
+  const extensionStart = filename.lastIndexOf('.')
+
+  if (extensionStart > 0) {
+    return `${filename.slice(0, extensionStart)}_${counter}${filename.slice(extensionStart)}`
+  }
+
+  return `${filename}_${counter}`
 }
 
 /**
@@ -269,15 +281,32 @@ export function downloadExport(content: string, filename: string, format: Export
  * Gets a unique filename, appending numeric suffix if needed
  */
 function getUniqueFilename(name: string, existingNames: Set<string>): string {
-  let filename = sanitizeFilename(name)
+  let filename = sanitizeFilename(name) || 'export'
   let counter = 1
   const original = filename
   while (existingNames.has(filename)) {
-    filename = `${original}_${counter}`
+    filename = appendFilenameCounter(original, counter)
     counter++
   }
   existingNames.add(filename)
   return filename
+}
+
+async function addAudioFilesToZip(
+  zip: JSZip,
+  projects: Project[]
+): Promise<void> {
+  const usedFilenames = new Set<string>()
+
+  for (const project of projects) {
+    if (!project.audioFileId) continue
+
+    const audioFile = await getAudioFile(project.audioFileId)
+    if (!audioFile) continue
+
+    const filename = getUniqueFilename(audioFile.name || project.audioFileName || project.name, usedFilenames)
+    zip.file(`audio/${filename}`, audioFile)
+  }
 }
 
 /**
@@ -321,6 +350,10 @@ export async function exportProjectsAsZip(
     const content = await exportProjectToFormat(project, options)
     const filename = getUniqueFilename(project.name, usedFilenames)
     zip.file(`${filename}.${extension}`, content)
+  }
+
+  if (options.includeAudio) {
+    await addAudioFilesToZip(zip, projects)
   }
 
   const blob = await zip.generateAsync({ type: 'blob' })
